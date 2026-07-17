@@ -24,8 +24,7 @@ Copilot Speech keeps microphone audio inside an isolated native helper, transcri
 
 - **Local by design** - raw audio stays in the native helper and never enters the VS Code extension host.
 - **Review before send** - final text is placed in Copilot Chat as an editable draft, never submitted automatically.
-- **Streaming first** - the architecture is designed for partial transcripts, voice activity detection, and responsive endpointing.
-- **Quality or speed** - choose Moonshine Medium for recognition quality or Small for a lighter footprint.
+- **Streaming first** - partial transcripts keep the recording status responsive while Moonshine Medium handles final recognition.
 - **Remote-workspace friendly** - the extension runs beside the desktop UI and microphone while your code can live in SSH, WSL, or a Dev Container.
 - **Failure isolated** - inference runs out of process behind a versioned, bounded NDJSON protocol.
 
@@ -81,17 +80,6 @@ flowchart LR
 
 The helper owns raw PCM, capture, voice activity detection, and inference. This keeps audio outside the extension host, prevents a helper crash from taking down VS Code, and avoids Electron or Node native-addon ABI coupling.
 
-## Models
-
-The draft catalog uses English streaming models from Moonshine Voice v2.
-
-| Model | Parameters | Required files | Role |
-| --- | ---: | ---: | --- |
-| Moonshine Medium Streaming English | 245M | 289.3 MiB | Default, best quality |
-| Moonshine Small Streaming English | 123M | 157.1 MiB | Faster, lighter option |
-
-The optional `decoder_kv_with_attention.ort` files are excluded because dictation does not require word-level timestamps. Published model URLs are recorded in [`artifacts/model-manifest.json`](artifacts/model-manifest.json), but SHA-256 values remain pending until immutable release artifacts are pinned. Production code must not install or execute an artifact without digest verification.
-
 ## Reference
 
 <details>
@@ -102,9 +90,6 @@ The optional `decoder_kv_with_attention.ort` files are excluded because dictatio
 | `Copilot Speech: Start Chat Dictation` | `Ctrl+Alt+V` / `Cmd+Alt+V` | Start a new local dictation session |
 | `Copilot Speech: Stop Dictation` | Same toggle | Finish dictation and deliver the final text |
 | `Copilot Speech: Cancel Dictation` | `Escape` while recording | Discard the active session |
-| `Copilot Speech: Select Microphone` | - | Choose a local capture device |
-| `Copilot Speech: Show Diagnostics` | - | Inspect state and non-content diagnostics |
-| `Copilot Speech: Open Settings` | - | Open extension settings |
 
 </details>
 
@@ -113,11 +98,8 @@ The optional `decoder_kv_with_attention.ort` files are excluded because dictatio
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `copilotSpeech.model` | `medium-streaming-en` | Local Moonshine model used for dictation |
-| `copilotSpeech.microphone` | `default` | Microphone device identifier |
 | `copilotSpeech.helperPath` | `""` | Development path to a native helper build |
 | `copilotSpeech.modelPath` | `""` | Development path to an unpacked Moonshine model |
-| `copilotSpeech.debug` | `false` | Write protocol and timing diagnostics without transcript text or audio |
 
 </details>
 
@@ -143,16 +125,6 @@ pnpm native:configure
 pnpm native:build
 pnpm native:test
 ```
-
-## Roadmap
-
-1. Pin Moonshine Voice and ONNX Runtime source revisions.
-2. Replace the protocol stub with Moonshine streaming inference.
-3. Add WASAPI, Core Audio, PulseAudio, and ALSA microphone capture.
-4. Publish signed helpers for Linux, macOS, and Windows.
-5. Add checksum-verified model/runtime installation under `globalStorageUri`.
-6. Benchmark Medium and Small on representative hardware and tune endpointing.
-7. Run clean-machine microphone permission and remote-workspace acceptance tests.
 
 ## License
 

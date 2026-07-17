@@ -1,27 +1,20 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import type { Interface } from 'node:readline'
 import type { Disposable, Event, LogOutputChannel } from 'vscode'
-import type { HelperCommand, HelperEvent, SpeechDevice } from './protocol'
+import type { HelperCommand, HelperEvent } from './protocol'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
-import { constants } from 'node:fs'
-import { access } from 'node:fs/promises'
-import process from 'node:process'
 import { createInterface } from 'node:readline'
 import { EventEmitter } from 'vscode'
 import { parseHelperEvent, PROTOCOL_VERSION } from './protocol'
 
 export interface StartSessionOptions {
   sessionId: string
-  model: string
   modelPath: string
-  deviceId: string
 }
 
 export interface SpeechHelper extends Disposable {
   readonly onEvent: Event<HelperEvent>
-  readonly configuredPath: string
-  listDevices: () => Promise<SpeechDevice[]>
   startSession: (options: StartSessionOptions) => Promise<void>
   stopSession: (sessionId: string) => void
   cancelSession: (sessionId: string) => void
@@ -42,30 +35,10 @@ export class HelperSupervisor implements SpeechHelper {
     private readonly output: LogOutputChannel,
   ) {}
 
-  get configuredPath(): string {
-    return this.resolveHelperPath().trim()
-  }
-
-  async listDevices(): Promise<SpeechDevice[]> {
-    await this.ensureRunning()
-    const result = this.waitFor('devices')
-    this.send({ type: 'listDevices' })
-    return (await result).devices
-  }
-
   async startSession(options: StartSessionOptions): Promise<void> {
     await this.ensureRunning()
-    const ready = this.waitFor('ready')
-    this.send({
-      type: 'initialize',
-      model: options.model,
-      modelPath: options.modelPath,
-      deviceId: options.deviceId,
-    })
-    await ready
-
     const recording = this.waitFor('recording')
-    this.send({ type: 'start', sessionId: options.sessionId })
+    this.send({ type: 'start', ...options })
     const event = await recording
     if (event.sessionId !== options.sessionId)
       throw new Error('Helper acknowledged a different dictation session.')
@@ -81,10 +54,8 @@ export class HelperSupervisor implements SpeechHelper {
 
   dispose(): void {
     this.disposed = true
-    if (this.child && !this.child.killed) {
-      this.send({ type: 'shutdown' })
+    if (this.child && !this.child.killed)
       this.child.kill()
-    }
     this.lines?.close()
     this.lines = undefined
     this.child = undefined
@@ -95,11 +66,10 @@ export class HelperSupervisor implements SpeechHelper {
     if (this.child && !this.child.killed)
       return
 
-    const helperPath = this.configuredPath
+    const helperPath = this.resolveHelperPath().trim()
     if (!helperPath)
       throw new HelperUnavailableError('No native helper is configured yet. Set Copilot Speech: Helper Path to a local development build.')
 
-    await access(helperPath, process.platform === 'win32' ? constants.F_OK : constants.X_OK)
     this.output.info(`Starting native helper: ${helperPath}`)
     const child = spawn(helperPath, ['--stdio'], {
       stdio: 'pipe',
@@ -108,7 +78,7 @@ export class HelperSupervisor implements SpeechHelper {
     this.child = child
     this.lines = createInterface({ input: child.stdout })
     this.lines.on('line', line => this.handleLine(line))
-    child.stderr.on('data', chunk => this.output.debug(`helper stderr: ${String(chunk).trimEnd()}`))
+    child.stderr.resume()
     child.on('error', error => this.handleProcessFailure(`Native helper failed: ${error.message}`))
     child.on('exit', (code, signal) => {
       this.child = undefined

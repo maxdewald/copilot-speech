@@ -1,6 +1,6 @@
 import type { ExtensionContext } from 'vscode'
 import { env, UIKind, window, workspace } from 'vscode'
-import { ChatTranscriptDelivery } from './delivery/chat'
+import { deliverToChat } from './delivery/chat'
 import { registerCommands } from './extension/commands'
 import { createStatusBar } from './extension/status'
 import { HelperSupervisor } from './speech/helper-supervisor'
@@ -12,8 +12,7 @@ export function activate(context: ExtensionContext): void {
     () => workspace.getConfiguration('copilotSpeech').get('helperPath', ''),
     output,
   )
-  const delivery = new ChatTranscriptDelivery()
-  const session = new DictationSession(helper, delivery, output)
+  const session = new DictationSession(helper, deliverToChat, output)
   const statusBar = createStatusBar(session)
 
   context.subscriptions.push(
@@ -21,7 +20,7 @@ export function activate(context: ExtensionContext): void {
     helper,
     session,
     statusBar,
-    ...registerCommands(session, helper, output),
+    ...registerCommands(session),
   )
 
   statusBar.show()

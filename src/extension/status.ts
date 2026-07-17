@@ -38,7 +38,7 @@ export function createStatusBar(session: DictationSession): StatusBarItem {
       case 'error':
         item.text = '$(warning) Speech'
         item.tooltip = snapshot.error ?? 'Copilot Speech encountered an error'
-        item.command = 'copilotSpeech.showDiagnostics'
+        item.command = 'copilotSpeech.startChatDictation'
         item.backgroundColor = new ThemeColor('statusBarItem.warningBackground')
         break
     }

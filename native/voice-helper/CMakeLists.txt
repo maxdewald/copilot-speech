@@ -11,4 +11,9 @@ else()
 endif()
 
 enable_testing()
-add_test(NAME helper-version COMMAND copilot-speech-helper --version)
+add_test(
+  NAME helper-protocol
+  COMMAND ${CMAKE_COMMAND}
+    -DHELPER=$<TARGET_FILE:copilot-speech-helper>
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/test/protocol.cmake
+)

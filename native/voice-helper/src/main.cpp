@@ -49,11 +49,7 @@ int run_stdio() {
     }
 
     if (*type == "hello") {
-      emit(R"({"type":"hello","protocolVersion":1,"helperVersion":"0.1.0-stub","capabilities":["protocol-stub","synthetic-transcript"]})");
-    } else if (*type == "initialize") {
-      emit(R"({"type":"ready"})");
-    } else if (*type == "listDevices") {
-      emit(R"json({"type":"devices","devices":[{"id":"default","name":"Default input device (protocol stub)","isDefault":true}]})json");
+      emit(R"({"type":"hello","protocolVersion":1,"helperVersion":"0.1.0-stub"})");
     } else if (*type == "start") {
       active_session = json_string(line, "sessionId").value_or("");
       emit("{\"type\":\"recording\",\"sessionId\":\"" +
@@ -63,21 +59,17 @@ int run_stdio() {
       if (transcript != nullptr && transcript[0] != '\0') {
         emit("{\"type\":\"final\",\"sessionId\":\"" +
              escape_json(active_session) +
-             "\",\"sequence\":1,\"text\":\"" +
+             "\",\"text\":\"" +
              escape_json(transcript) + "\"}");
       } else {
         emit("{\"type\":\"error\",\"code\":\"runtime_not_implemented\",\"message\":\"This first draft contains the protocol stub, not microphone capture or Moonshine inference.\",\"sessionId\":\"" +
              escape_json(active_session) + "\"}");
       }
-      emit("{\"type\":\"stopped\",\"sessionId\":\"" +
-           escape_json(active_session) + "\"}");
       active_session.clear();
     } else if (*type == "cancel") {
       emit("{\"type\":\"cancelled\",\"sessionId\":\"" +
            escape_json(active_session) + "\"}");
       active_session.clear();
-    } else if (*type == "shutdown") {
-      return 0;
     } else {
       emit(R"({"type":"error","code":"unsupported_command","message":"The protocol stub does not support this command."})");
     }

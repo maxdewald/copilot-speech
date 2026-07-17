@@ -8,11 +8,6 @@ export default defineConfig({
     },
   },
   test: {
-    coverage: {
-      provider: 'v8',
-      include: ['src/**/*.ts'],
-      reporter: ['text', 'html'],
-    },
     include: ['test/**/*.test.ts'],
     clearMocks: true,
     restoreMocks: true,

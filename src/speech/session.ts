@@ -1,5 +1,4 @@
 import type { Disposable, Event, LogOutputChannel } from 'vscode'
-import type { TranscriptDelivery } from '../delivery/chat'
 import type { SpeechHelper } from './helper-supervisor'
 import type { HelperEvent } from './protocol'
 import { randomUUID } from 'node:crypto'
@@ -14,9 +13,7 @@ export interface DictationSnapshot {
 }
 
 export interface DictationOptions {
-  model: string
   modelPath: string
-  deviceId: string
 }
 
 export class DictationSession implements Disposable {
@@ -29,7 +26,7 @@ export class DictationSession implements Disposable {
 
   constructor(
     private readonly helper: SpeechHelper,
-    private readonly delivery: TranscriptDelivery,
+    private readonly deliverTranscript: (transcript: string) => Promise<void>,
     private readonly output: LogOutputChannel,
   ) {
     this.helperSubscription = helper.onEvent(event => void this.handleHelperEvent(event))
@@ -48,7 +45,6 @@ export class DictationSession implements Disposable {
     this.update({ state: 'starting', partialText: '' })
     try {
       await this.helper.startSession({ sessionId, ...options })
-      this.update({ state: 'recording', partialText: '' })
     }
     catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -83,9 +79,6 @@ export class DictationSession implements Disposable {
 
     switch (event.type) {
       case 'hello':
-      case 'ready':
-      case 'devices':
-      case 'level':
         break
       case 'recording':
         this.update({ state: 'recording', partialText: '' })
@@ -96,11 +89,9 @@ export class DictationSession implements Disposable {
       case 'final':
         await this.deliver(event.text)
         break
-      case 'stopped':
       case 'cancelled':
         this.currentSessionId = undefined
-        if (this.snapshot.state !== 'delivering')
-          this.update({ state: 'idle', partialText: '' })
+        this.update({ state: 'idle', partialText: '' })
         break
       case 'error':
         this.currentSessionId = undefined
@@ -114,7 +105,7 @@ export class DictationSession implements Disposable {
     this.update({ state: 'delivering', partialText: transcript })
     try {
       if (transcript)
-        await this.delivery.deliver(transcript)
+        await this.deliverTranscript(transcript)
       this.currentSessionId = undefined
       this.update({ state: 'idle', partialText: '' })
     }
