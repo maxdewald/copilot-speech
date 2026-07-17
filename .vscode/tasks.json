@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev",
+      "type": "shell",
+      "command": "pnpm dev",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "never"
+      },
+      "problemMatcher": [
+        {
+          "base": "$tsc-watch",
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "Build start",
+            "endsPattern": "(B|Reb)uild complete|Rebuilt in"
+          }
+        }
+      ],
+      "group": "build"
+    },
+    {
+      "label": "native",
+      "type": "shell",
+      "command": "pnpm native:configure && pnpm native:build",
+      "problemMatcher": "$gcc",
+      "group": "build"
+    }
+  ]
+}

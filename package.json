@@ -1,0 +1,198 @@
+{
+  "publisher": "maxdewald",
+  "name": "copilot-speech",
+  "displayName": "Copilot Speech",
+  "type": "module",
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.13.0",
+  "volta": {
+    "node": "24.18.0",
+    "pnpm": "11.13.0"
+  },
+  "description": "Private local speech-to-text for GitHub Copilot Chat.",
+  "author": "Maximilian Dewald <maximilian@dewald.one>",
+  "license": "MIT",
+  "homepage": "https://github.com/maxdewald/copilot-speech#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maxdewald/copilot-speech.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maxdewald/copilot-speech/issues"
+  },
+  "keywords": [
+    "copilot",
+    "dictation",
+    "speech-to-text",
+    "voice",
+    "whisper"
+  ],
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "main": "./dist/index.cjs",
+  "files": [
+    "LICENSE.md",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "artifacts/*.json",
+    "dist/*"
+  ],
+  "engines": {
+    "node": ">=22.18.0",
+    "vscode": "^1.124.0"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "copilotSpeech.startChatDictation",
+        "title": "Start Chat Dictation",
+        "category": "Copilot Speech",
+        "icon": "$(mic)"
+      },
+      {
+        "command": "copilotSpeech.stopDictation",
+        "title": "Stop Dictation",
+        "category": "Copilot Speech",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "copilotSpeech.cancelDictation",
+        "title": "Cancel Dictation",
+        "category": "Copilot Speech"
+      },
+      {
+        "command": "copilotSpeech.selectMicrophone",
+        "title": "Select Microphone",
+        "category": "Copilot Speech"
+      },
+      {
+        "command": "copilotSpeech.showDiagnostics",
+        "title": "Show Diagnostics",
+        "category": "Copilot Speech"
+      },
+      {
+        "command": "copilotSpeech.openSettings",
+        "title": "Open Settings",
+        "category": "Copilot Speech"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "copilotSpeech.startChatDictation",
+        "key": "ctrl+alt+v",
+        "mac": "cmd+alt+v",
+        "when": "!copilotSpeech.recording"
+      },
+      {
+        "command": "copilotSpeech.stopDictation",
+        "key": "ctrl+alt+v",
+        "mac": "cmd+alt+v",
+        "when": "copilotSpeech.recording"
+      },
+      {
+        "command": "copilotSpeech.cancelDictation",
+        "key": "escape",
+        "when": "copilotSpeech.recording"
+      }
+    ],
+    "menus": {
+      "chat/input/status": [
+        {
+          "command": "copilotSpeech.startChatDictation",
+          "when": "!copilotSpeech.recording",
+          "group": "navigation@10"
+        },
+        {
+          "command": "copilotSpeech.stopDictation",
+          "when": "copilotSpeech.recording",
+          "group": "navigation@10"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Copilot Speech",
+      "properties": {
+        "copilotSpeech.model": {
+          "type": "string",
+          "enum": [
+            "medium-streaming-en",
+            "small-streaming-en"
+          ],
+          "enumItemLabels": [
+            "Medium Streaming (Best Quality)",
+            "Small Streaming (Faster and Smaller)"
+          ],
+          "default": "medium-streaming-en",
+          "scope": "machine",
+          "description": "Local English Moonshine model used for dictation. Medium is about 289 MiB before the native runtime."
+        },
+        "copilotSpeech.microphone": {
+          "type": "string",
+          "default": "default",
+          "scope": "machine",
+          "description": "Microphone device identifier. Use the Select Microphone command to change it."
+        },
+        "copilotSpeech.helperPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional path to a Copilot Speech native helper build. Intended for development until managed runtime downloads are published."
+        },
+        "copilotSpeech.modelPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional path to an unpacked Moonshine model. Intended for native-helper development until managed model downloads are published."
+        },
+        "copilotSpeech.debug": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "Write protocol and timing diagnostics. Transcript text and audio are never logged."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch --sourcemap",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
+    "native:configure": "cmake -S native/voice-helper -B native/voice-helper/build -DCMAKE_BUILD_TYPE=Release",
+    "native:build": "cmake --build native/voice-helper/build --config Release",
+    "native:test": "ctest --test-dir native/voice-helper/build --build-config Release --output-on-failure",
+    "vscode:prepublish": "pnpm build",
+    "ext:package": "vsce package --no-dependencies",
+    "ext:publish": "vsce publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^9.0.0",
+    "@types/node": "^24.13.3",
+    "@types/vscode": "^1.124.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@vscode/vsce": "^3.9.2",
+    "eslint": "^10.7.0",
+    "jest-mock-vscode": "^4.12.0",
+    "tsdown": "^0.22.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

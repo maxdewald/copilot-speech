@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "draft": true,
+  "protocolVersion": 1,
+  "helperVersion": "0.1.0-stub",
+  "artifacts": [],
+  "note": "Platform helper URLs and SHA-256 digests are populated after the Moonshine runtime build is reproducible."
+}

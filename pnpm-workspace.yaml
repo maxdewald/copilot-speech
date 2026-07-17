@@ -1,0 +1,11 @@
+shellEmulator: true
+
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  # Required by @vscode/vsce through parse-semver@1.1.1.
+  - semver@5.7.2
+
+allowBuilds:
+  '@vscode/vsce-sign': true
+  esbuild: true
+  keytar: true

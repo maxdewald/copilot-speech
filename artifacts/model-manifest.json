@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "draft": true,
+  "source": "https://download.moonshine.ai/model",
+  "license": "MIT",
+  "models": [
+    {
+      "id": "medium-streaming-en",
+      "displayName": "Moonshine Medium Streaming English",
+      "default": true,
+      "installedBytes": 303329727,
+      "files": [
+        { "name": "adapter.ort", "bytes": 3647712 },
+        { "name": "cross_kv.ort", "bytes": 11544952 },
+        { "name": "decoder_kv.ort", "bytes": 146216448 },
+        { "name": "encoder.ort", "bytes": 94202872 },
+        { "name": "frontend.ort", "bytes": 47467256 },
+        { "name": "streaming_config.json", "bytes": 513 },
+        { "name": "tokenizer.bin", "bytes": 249974 }
+      ],
+      "baseUrl": "https://download.moonshine.ai/model/medium-streaming-en/quantized",
+      "sha256Status": "pending-release-pinning"
+    },
+    {
+      "id": "small-streaming-en",
+      "displayName": "Moonshine Small Streaming English",
+      "default": false,
+      "installedBytes": 164689974,
+      "files": [
+        { "name": "adapter.ort", "bytes": 2867424 },
+        { "name": "cross_kv.ort", "bytes": 5298736 },
+        { "name": "decoder_kv.ort", "bytes": 81435904 },
+        { "name": "encoder.ort", "bytes": 43853224 },
+        { "name": "frontend.ort", "bytes": 30984200 },
+        { "name": "streaming_config.json", "bytes": 512 },
+        { "name": "tokenizer.bin", "bytes": 249974 }
+      ],
+      "baseUrl": "https://download.moonshine.ai/model/small-streaming-en/quantized",
+      "sha256Status": "pending-release-pinning"
+    }
+  ],
+  "excludedFiles": [
+    {
+      "name": "decoder_kv_with_attention.ort",
+      "reason": "Word timestamps are out of scope for the first release."
+    }
+  ]
+}
