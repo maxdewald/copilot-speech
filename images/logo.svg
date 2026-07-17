@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title description">
   <title id="title">Copilot Speech logo</title>
-  <desc id="description">A centered microphone with symmetrical audio bars.</desc>
+  <desc id="description">A centered microphone.</desc>
   <defs>
     <linearGradient id="background" x1="18" y1="14" x2="142" y2="146" gradientUnits="userSpaceOnUse">
       <stop stop-color="#087A85"/>
@@ -11,5 +11,4 @@
   <rect x="66" y="38" width="28" height="54" rx="14" fill="#FFFFFF"/>
   <path d="M54 76v7c0 15 11.6 27 26 27s26-12 26-27v-7" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-width="8"/>
   <path d="M80 110v17M65 127h30" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-width="8"/>
-  <path d="M39 70v20M49 61v38M121 70v20M111 61v38" fill="none" stroke="#B9F3EE" stroke-linecap="round" stroke-width="6"/>
 </svg>
