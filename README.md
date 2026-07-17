@@ -1,118 +1,148 @@
-# Copilot Speech
+<div align="center">
 
-Private, local voice dictation for GitHub Copilot Chat in desktop VS Code.
+<img src="images/logo.png" width="132" alt="Copilot Speech logo" />
 
-Copilot Speech records from the microphone on your computer, transcribes with a local streaming speech model, and prefills Copilot Chat so you can review the prompt before sending it. Audio and transcripts are not sent to a cloud transcription service.
+<h1>Copilot Speech</h1>
 
-> [!IMPORTANT]
-> This repository is an implementation draft. The VS Code extension, process protocol, Chat delivery, tests, CI, model metadata, and native helper stub are working. Microphone capture, Moonshine inference, managed runtime downloads, and signed release artifacts are the next implementation phase.
+<p>
+  <b>Private, local voice dictation for GitHub Copilot Chat in desktop VS Code</b><br/>
+  <sub>Speak naturally. Review the prompt. Send when you are ready.</sub>
+</p>
 
-## Direction
+<p>
+  <img src="https://img.shields.io/badge/status-implementation%20draft-D97706" alt="Implementation draft" />
+  <img src="https://img.shields.io/badge/VS%20Code-1.124%2B-007ACC?logo=visualstudiocode&logoColor=white" alt="VS Code 1.124+" />
+  <img src="https://img.shields.io/badge/transcription-local-168477" alt="Local transcription" />
+  <a href="./LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-3DA639?logo=opensourceinitiative&logoColor=white" alt="MIT License" /></a>
+</p>
 
-- English-first local dictation.
-- Moonshine Voice v2 Medium Streaming as the quality default.
-- Moonshine Small Streaming as a faster, lighter option.
-- True streaming partial transcripts and voice activity detection.
-- Review-before-send Chat integration.
-- A local UI extension host, including Remote SSH, WSL, and Dev Container windows.
-- No transcript history, audio retention, automatic prompt submission, or speech telemetry.
+</div>
 
-Medium Streaming's required transcription files are about 289 MiB before the native runtime. Small Streaming is about 157 MiB. Size remains important, but recognition quality and usable latency take priority over a hard 200 MB ceiling.
+Copilot Speech keeps microphone audio inside an isolated native helper, transcribes it with a local streaming model, and prefills Copilot Chat for review. No cloud transcription service, no automatic submission, and no transcript history.
 
-## Current Draft
+## Highlights
 
-The extension currently provides:
+- **Local by design** - raw audio stays in the native helper and never enters the VS Code extension host.
+- **Review before send** - final text is placed in Copilot Chat as an editable draft, never submitted automatically.
+- **Streaming first** - the architecture is designed for partial transcripts, voice activity detection, and responsive endpointing.
+- **Quality or speed** - choose Moonshine Medium for recognition quality or Small for a lighter footprint.
+- **Remote-workspace friendly** - the extension runs beside the desktop UI and microphone while your code can live in SSH, WSL, or a Dev Container.
+- **Failure isolated** - inference runs out of process behind a versioned, bounded NDJSON protocol.
 
-- Start, stop, cancel, microphone selection, diagnostics, and settings commands.
-- `Ctrl+Alt+V` on Windows/Linux or `Cmd+Alt+V` on macOS to toggle dictation.
-- A status bar control and a `chat/input/status` contribution.
-- A versioned newline-delimited JSON protocol over stdio.
-- An isolated native helper process boundary.
-- Copilot Chat prefill through `workbench.action.chat.open` with `isPartialQuery: true`.
-- Clipboard fallback when Chat prefill is unavailable.
-- A C++ protocol stub for end-to-end development and CI.
+## Try the draft
 
-The helper stub can produce a synthetic transcript, but it does not access the microphone yet.
+> Requires **VS Code 1.124+**, **Node.js 24**, **pnpm 11**, **CMake 3.20+**, and a **C++20 compiler**.
 
-## Architecture
+1. **Install and validate the extension.**
+
+	```bash
+	pnpm install
+	pnpm check
+	pnpm ext:package
+	```
+
+2. **Build the native protocol stub.**
+
+	```bash
+	pnpm native:configure
+	pnpm native:build
+	pnpm native:test
+	```
+
+3. **Point Copilot Speech at the helper.** Set `copilotSpeech.helperPath` to the built executable. On Linux, the default build location is:
+
+	```text
+	native/voice-helper/build/copilot-speech-helper
+	```
+
+4. **Launch an end-to-end synthetic transcript.**
+
+	```bash
+	COPILOT_SPEECH_STUB_TRANSCRIPT="Explain the selected function" code .
+	```
+
+Start dictation, then stop it. The helper emits the synthetic final transcript and Copilot Speech prefills Chat without submitting it.
+
+## How it works
+
+The extension coordinates a local helper process instead of loading microphone or inference code into the extension host.
 
 ```mermaid
 flowchart LR
-	Command[VS Code command or keybinding] --> Session[Dictation session]
-	Session -->|NDJSON commands| Helper[Native helper process]
-	Helper --> Capture[Local microphone capture]
+	Command[Command or keybinding] --> Session[Dictation session]
+	Session -->|bounded NDJSON| Helper[Native helper]
+	Helper --> Capture[Microphone capture]
 	Capture --> Moonshine[Moonshine streaming ASR]
 	Moonshine -->|partial and final events| Helper
-	Helper -->|NDJSON events| Session
+	Helper -->|versioned events| Session
 	Session --> Delivery[Chat delivery adapter]
-	Delivery -->|prefill, never submit| Chat[Copilot Chat]
+	Delivery -->|prefill only| Chat[Copilot Chat]
 ```
 
-The helper owns raw audio, capture, VAD, and inference. Raw PCM never enters the extension host. A helper crash cannot take down VS Code's extension host, and the protocol remains testable without Electron or Node native-addon ABI coupling.
+The helper owns raw PCM, capture, voice activity detection, and inference. This keeps audio outside the extension host, prevents a helper crash from taking down VS Code, and avoids Electron or Node native-addon ABI coupling.
+
+## Models
+
+The draft catalog uses English streaming models from Moonshine Voice v2.
+
+| Model | Parameters | Required files | Role |
+| --- | ---: | ---: | --- |
+| Moonshine Medium Streaming English | 245M | 289.3 MiB | Default, best quality |
+| Moonshine Small Streaming English | 123M | 157.1 MiB | Faster, lighter option |
+
+The optional `decoder_kv_with_attention.ort` files are excluded because dictation does not require word-level timestamps. Published model URLs are recorded in [`artifacts/model-manifest.json`](artifacts/model-manifest.json), but SHA-256 values remain pending until immutable release artifacts are pinned. Production code must not install or execute an artifact without digest verification.
+
+## Reference
+
+<details>
+<summary><b>Commands and shortcuts</b></summary>
+
+| Command | Shortcut | Purpose |
+| --- | --- | --- |
+| `Copilot Speech: Start Chat Dictation` | `Ctrl+Alt+V` / `Cmd+Alt+V` | Start a new local dictation session |
+| `Copilot Speech: Stop Dictation` | Same toggle | Finish dictation and deliver the final text |
+| `Copilot Speech: Cancel Dictation` | `Escape` while recording | Discard the active session |
+| `Copilot Speech: Select Microphone` | - | Choose a local capture device |
+| `Copilot Speech: Show Diagnostics` | - | Inspect state and non-content diagnostics |
+| `Copilot Speech: Open Settings` | - | Open extension settings |
+
+</details>
+
+<details>
+<summary><b>Settings</b></summary>
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `copilotSpeech.model` | `medium-streaming-en` | Local Moonshine model used for dictation |
+| `copilotSpeech.microphone` | `default` | Microphone device identifier |
+| `copilotSpeech.helperPath` | `""` | Development path to a native helper build |
+| `copilotSpeech.modelPath` | `""` | Development path to an unpacked Moonshine model |
+| `copilotSpeech.debug` | `false` | Write protocol and timing diagnostics without transcript text or audio |
+
+</details>
+
+<details>
+<summary><b>Remote workspaces</b></summary>
+
+Copilot Speech declares `extensionKind: ["ui"]`, so it runs next to the desktop UI and local microphone while source files may live in Remote SSH, WSL, or Dev Containers. Browser-hosted VS Code is out of scope because it cannot run the native helper.
+
+</details>
 
 ## Development
 
-Requirements:
-
-- Node.js 24
-- pnpm 11
-- CMake 3.20 or newer
-- A C++20 compiler
-
-Install and validate the TypeScript extension:
-
 ```bash
 pnpm install
-pnpm check
-pnpm ext:package
+pnpm check          # lint + typecheck + tests + coverage + build
+pnpm ext:package    # produce an installable .vsix
 ```
 
-Build the native protocol stub:
+Native helper commands:
 
 ```bash
 pnpm native:configure
 pnpm native:build
 pnpm native:test
 ```
-
-Set `copilotSpeech.helperPath` to the built executable. On Linux that is normally:
-
-```text
-native/voice-helper/build/copilot-speech-helper
-```
-
-To exercise the draft end to end, launch VS Code with a synthetic final transcript:
-
-```bash
-COPILOT_SPEECH_STUB_TRANSCRIPT="Explain the selected function" code .
-```
-
-Start dictation, then stop it. The helper emits the synthetic transcript and Copilot Speech prefills Chat without submitting.
-
-## Models
-
-The draft model catalog is stored in `artifacts/model-manifest.json`.
-
-| Model | Parameters | Required model files | Role |
-| --- | ---: | ---: | --- |
-| Moonshine Medium Streaming English | 245M | 303,329,727 bytes | Default, best quality |
-| Moonshine Small Streaming English | 123M | 164,689,974 bytes | Lower-resource option |
-
-The optional `decoder_kv_with_attention.ort` files are excluded because word-level timestamps are not required for dictation and would duplicate roughly one decoder's worth of storage.
-
-Published model URLs are recorded, but SHA-256 values remain intentionally marked pending until the project pins immutable release artifacts. Production code must not install or execute artifacts without digest verification.
-
-## Privacy
-
-- Audio stays inside the native helper and is not retained by default.
-- Final transcripts are held only long enough to deliver or offer recovery after an error.
-- Logs contain state, versions, timing, and error codes, not transcript text or audio.
-- Chat prompts are prefilled for review and never automatically submitted.
-- Network access will be limited to explicit model/runtime installation and updates.
-
-## Remote Workspaces
-
-The extension declares `extensionKind: ["ui"]`. It runs next to the desktop UI and local microphone while source files may live in Remote SSH, WSL, or Dev Containers. Browser-hosted VS Code is out of scope because it cannot run the native helper.
 
 ## Roadmap
 
@@ -126,4 +156,4 @@ The extension declares `extensionKind: ["ui"]`. It runs next to the desktop UI a
 
 ## License
 
-Copilot Speech is licensed under MIT. See `THIRD_PARTY_NOTICES.md` for planned runtime and model dependencies.
+[MIT](./LICENSE.md) - see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for planned runtime and model dependencies.

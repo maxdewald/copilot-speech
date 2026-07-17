@@ -37,7 +37,8 @@
     "README.md",
     "THIRD_PARTY_NOTICES.md",
     "artifacts/*.json",
-    "dist/*"
+    "dist/*",
+    "images/*"
   ],
   "engines": {
     "node": ">=22.18.0",
