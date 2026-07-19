@@ -100,25 +100,6 @@
         "when": "copilotSpeech.recording"
       }
     ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "copilotSpeech.startChatDictation",
-          "when": "view == workbench.panel.chat.view.copilot && !copilotSpeech.active",
-          "group": "navigation@10"
-        },
-        {
-          "command": "copilotSpeech.stopDictation",
-          "when": "view == workbench.panel.chat.view.copilot && copilotSpeech.recording",
-          "group": "navigation@10"
-        },
-        {
-          "command": "copilotSpeech.cancelDictation",
-          "when": "view == workbench.panel.chat.view.copilot && copilotSpeech.active && !copilotSpeech.recording",
-          "group": "navigation@10"
-        }
-      ]
-    },
     "configuration": {
       "title": "Copilot Speech",
       "properties": {

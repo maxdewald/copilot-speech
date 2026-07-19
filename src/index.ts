@@ -5,6 +5,7 @@ import { deliverToChat } from './chat-delivery'
 import { registerCommands } from './commands'
 import { DictationSession } from './dictation-session'
 import { HelperSupervisor } from './helper-process'
+import { createStatusBar } from './status-bar'
 
 export function activate(context: ExtensionContext): void {
   const output = window.createOutputChannel('Copilot Speech', { log: true })
@@ -27,14 +28,18 @@ export function activate(context: ExtensionContext): void {
   }
   updateContext(session.state.state)
   const contextSubscription = session.onDidChangeState(snapshot => updateContext(snapshot.state))
+  const statusBar = createStatusBar(session)
 
   context.subscriptions.push(
     output,
     helper,
     session,
     contextSubscription,
+    statusBar,
     ...commandDisposables,
   )
+
+  statusBar.show()
 
   if (env.uiKind !== UIKind.Desktop)
     void window.showWarningMessage('Copilot Speech requires desktop VS Code because transcription runs beside your local microphone.')
