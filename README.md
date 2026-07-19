@@ -22,59 +22,22 @@ Copilot Speech keeps microphone audio inside an isolated native helper, transcri
 
 ## Highlights
 
-- **Powered by Moonshine AI** - speech recognition runs entirely on your machine with the local [Moonshine](https://github.com/moonshine-ai/moonshine) model. Nothing is ever sent to the cloud.
+- **Powered by Moonshine AI** - speech recognition runs entirely on your machine with the local [Moonshine](https://github.com/moonshine-ai/moonshine) Medium Streaming model. [Moonshine's benchmarks](https://github.com/moonshine-ai/moonshine#when-should-you-choose-moonshine-over-whisper) put Medium Streaming at **6.65% WER** on the [OpenASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) — better than Whisper Large v3 (7.44%) with about one-sixth the parameters (245M vs 1.5B) and end-of-phrase latency around **100ms** for short utterances instead of multi-second waits. Nothing is ever sent to the cloud.
 - **Your voice stays private** - audio never leaves your device, and no transcript history is kept.
-- **You decide when to send** - dictated text lands in Copilot Chat as an editable draft, so you can review and edit before submitting.
 - **Responsive as you speak** - text appears live while you talk, so you always know it's listening.
-- **Speak your language** - choose English, Arabic, Spanish, Japanese, Korean, Ukrainian, Vietnamese, or Chinese.
-- **Works with remote workspaces** - dictate locally even when your code lives in SSH, WSL, or a Dev Container.
+- **Speak your language** - choose English, Arabic, Spanish, Japanese, Korean, Ukrainian, Vietnamese, or Chinese. Non-English Moonshine model weights use the [Moonshine Community License](https://moonshine.ai/license) for non-commercial use.
 
-## Why Moonshine
+## Quickstart
 
-The official VS Code Speech extension also works offline, using the Azure Speech SDK, but Microsoft does not identify the speech recognition model it ships. Copilot Speech uses the openly documented **Moonshine Medium Streaming** model, built specifically for live voice input.
+Requires **desktop VS Code 1.124+** (not the browser).
 
-- **Faster-feeling conversations** - Moonshine processes speech as you talk, reducing the wait after you finish a sentence.
-- **Live, useful feedback** - the transcript updates continuously instead of making you wonder whether your speech was understood.
-- **A model you can inspect** - Moonshine publishes its model details, research, and benchmarks instead of hiding the recognition engine behind an SDK.
-- **Best available model for each language** - English uses Moonshine Medium Streaming; every other language uses the highest-quality Moonshine model currently published for it.
+1. Install **Copilot Speech** from the Extensions view.
+2. Press `Ctrl+Alt+V` / `Cmd+Alt+V` (or run **Copilot Speech: Start Chat Dictation**).
+3. Speak. Partial text appears as you talk.
+4. Press the same shortcut again to stop. The final transcript is prefilled into Copilot Chat — review and send when ready.
+5. Press `Escape` while recording to cancel and discard.
 
-Moonshine's non-English model weights are released under the [Moonshine Community License](https://moonshine.ai/license) for non-commercial use.
-
-## Try the draft
-
-> Requires **VS Code 1.124+**, **Node.js 24**, **pnpm 11**, **CMake 3.20+**, and a **C++20 compiler**.
-
-1. **Install and validate the extension.**
-
-	```bash
-	pnpm install
-	pnpm check
-	```
-
-2. **Build and test the native helper.**
-
-	```bash
-	pnpm native:configure
-	pnpm native:build
-	pnpm native:test
-	pnpm ext:package
-	```
-
-3. **Point Copilot Speech at the helper.** Set `copilotSpeech.helperPath` to the packaged executable. On Linux, the default location is:
-
-	```text
-	dist/native/runtime/linux-x64/copilot-speech-helper
-	```
-
-	Packaged releases select the matching `linux-x64`, `win32-x64`, or `darwin-arm64` runtime automatically, so this setting is only needed for helper development.
-
-4. **Launch an end-to-end synthetic transcript.**
-
-	```bash
-	COPILOT_SPEECH_STUB_TRANSCRIPT="Explain the selected function" code .
-	```
-
-Start dictation, then stop it. The helper emits the synthetic final transcript and Copilot Speech prefills Chat without submitting it.
+Optional: set `copilotSpeech.language` if you are not dictating in English. The first run downloads the local Moonshine model for that language.
 
 ## How it works
 
@@ -115,13 +78,6 @@ The helper owns raw PCM, capture, voice activity detection, and inference. This 
 | `copilotSpeech.language` | `en` | Recognition language and local Moonshine model to use |
 | `copilotSpeech.helperPath` | `""` | Development path to a native helper build |
 | `copilotSpeech.modelPath` | `""` | Development path to an unpacked Moonshine model |
-
-</details>
-
-<details>
-<summary><b>Remote workspaces</b></summary>
-
-Copilot Speech declares `extensionKind: ["ui"]`, so it runs next to the desktop UI and local microphone while source files may live in Remote SSH, WSL, or Dev Containers. Browser-hosted VS Code is out of scope because it cannot run the native helper.
 
 </details>
 
