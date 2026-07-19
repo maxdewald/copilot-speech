@@ -67,13 +67,12 @@
         "command": "copilotSpeech.stopDictation",
         "title": "Stop Dictation",
         "category": "Copilot Speech",
-        "icon": "$(record)"
+        "icon": "$(debug-stop)"
       },
       {
         "command": "copilotSpeech.cancelDictation",
         "title": "Cancel Dictation",
-        "category": "Copilot Speech",
-        "icon": "$(loading~spin)"
+        "category": "Copilot Speech"
       },
       {
         "command": "copilotSpeech.showLogs",
@@ -100,6 +99,20 @@
         "when": "copilotSpeech.recording"
       }
     ],
+    "menus": {
+      "chat/input/status": [
+        {
+          "command": "copilotSpeech.startChatDictation",
+          "when": "!copilotSpeech.active",
+          "group": "navigation@10"
+        },
+        {
+          "command": "copilotSpeech.stopDictation",
+          "when": "copilotSpeech.active",
+          "group": "navigation@10"
+        }
+      ]
+    },
     "configuration": {
       "title": "Copilot Speech",
       "properties": {

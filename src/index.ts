@@ -1,6 +1,6 @@
 import type { ExtensionContext } from 'vscode'
 import process from 'node:process'
-import { commands, env, UIKind, window, workspace } from 'vscode'
+import { env, UIKind, window, workspace } from 'vscode'
 import { deliverToChat } from './chat-delivery'
 import { registerCommands } from './commands'
 import { DictationSession } from './dictation-session'
@@ -21,22 +21,14 @@ export function activate(context: ExtensionContext): void {
     output,
   )
   const session = new DictationSession(helper, deliverToChat, output)
-  const commandDisposables = registerCommands(context, session, output)
-  const updateContext = (state: string): void => {
-    void commands.executeCommand('setContext', 'copilotSpeech.active', !['idle', 'error'].includes(state))
-    void commands.executeCommand('setContext', 'copilotSpeech.recording', state === 'recording')
-  }
-  updateContext(session.state.state)
-  const contextSubscription = session.onDidChangeState(snapshot => updateContext(snapshot.state))
   const statusBar = createStatusBar(session)
 
   context.subscriptions.push(
     output,
     helper,
     session,
-    contextSubscription,
     statusBar,
-    ...commandDisposables,
+    ...registerCommands(context, session, output),
   )
 
   statusBar.show()
