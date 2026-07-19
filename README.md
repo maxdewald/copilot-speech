@@ -22,11 +22,22 @@ Copilot Speech keeps microphone audio inside an isolated native helper, transcri
 
 ## Highlights
 
-- **Local by design** - raw audio stays in the native helper and never enters the VS Code extension host.
-- **Review before send** - final text is placed in Copilot Chat as an editable draft, never submitted automatically.
-- **Streaming first** - partial transcripts keep the recording status responsive while Moonshine Medium handles final recognition.
-- **Remote-workspace friendly** - the extension runs beside the desktop UI and microphone while your code can live in SSH, WSL, or a Dev Container.
-- **Failure isolated** - inference runs out of process behind a versioned, bounded NDJSON protocol.
+- **Powered by Moonshine AI** - speech recognition runs entirely on your machine with the local [Moonshine](https://github.com/moonshine-ai/moonshine) model. Nothing is ever sent to the cloud.
+- **Your voice stays private** - audio never leaves your device, and no transcript history is kept.
+- **You decide when to send** - dictated text lands in Copilot Chat as an editable draft, so you can review and edit before submitting.
+- **Responsive as you speak** - text appears live while you talk, so you always know it's listening.
+- **Works with remote workspaces** - dictate locally even when your code lives in SSH, WSL, or a Dev Container.
+
+## Why Moonshine
+
+The official VS Code Speech extension also works offline, using the Azure Speech SDK, but Microsoft does not identify the speech recognition model it ships. Copilot Speech uses the openly documented **Moonshine Medium Streaming** model, built specifically for live voice input.
+
+- **Faster-feeling conversations** - Moonshine processes speech as you talk, reducing the wait after you finish a sentence.
+- **Live, useful feedback** - the transcript updates continuously instead of making you wonder whether your speech was understood.
+- **A model you can inspect** - Moonshine publishes its model details, research, and benchmarks instead of hiding the recognition engine behind an SDK.
+- **Focused on accurate English dictation** - the Medium Streaming model prioritizes recognition quality while remaining practical to run locally.
+
+Copilot Speech currently supports English only. VS Code Speech supports 26 languages, so broader language support remains an area for improvement.
 
 ## Try the draft
 

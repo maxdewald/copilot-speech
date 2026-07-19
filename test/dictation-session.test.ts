@@ -49,6 +49,23 @@ describe('dictationSession', () => {
     await vi.waitFor(() => expect(session.state.state).toBe('idle'))
   })
 
+  it('appends a new recording to the previous transcript', async () => {
+    const helper = new FakeHelper()
+    const deliver = vi.fn(async () => {})
+    const session = new DictationSession(helper, deliver, output)
+
+    await session.start(async () => ({ modelPath: '/models/medium' }))
+    session.stop()
+    await vi.waitFor(() => expect(session.state.state).toBe('idle'))
+
+    await session.start(async () => ({ modelPath: '/models/medium' }))
+    const sessionId = helper.startOptions!.sessionId
+    helper.fire({ type: 'final', sessionId, text: 'and more speech' })
+
+    await vi.waitFor(() => expect(deliver).toHaveBeenLastCalledWith('Hello from speech and more speech'))
+    expect(session.state.state).toBe('idle')
+  })
+
   it('updates Chat with partial transcripts while recording', async () => {
     const helper = new FakeHelper()
     const deliver = vi.fn(async () => {})

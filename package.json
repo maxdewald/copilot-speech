@@ -99,20 +99,6 @@
         "when": "copilotSpeech.recording"
       }
     ],
-    "menus": {
-      "chat/input/status": [
-        {
-          "command": "copilotSpeech.startChatDictation",
-          "when": "!copilotSpeech.active",
-          "group": "navigation@10"
-        },
-        {
-          "command": "copilotSpeech.stopDictation",
-          "when": "copilotSpeech.active",
-          "group": "navigation@10"
-        }
-      ]
-    },
     "configuration": {
       "title": "Copilot Speech",
       "properties": {
