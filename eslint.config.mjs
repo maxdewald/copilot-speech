@@ -9,7 +9,8 @@ export default antfu(
     },
     ignores: [
       '.vscode-test',
-      'native/voice-helper/build',
+      'build',
+      'runtime',
     ],
   },
 )

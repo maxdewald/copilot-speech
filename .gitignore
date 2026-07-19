@@ -1,8 +1,9 @@
-out
-dist
-node_modules
-.vscode-test/
-*.vsix
-coverage
-native/voice-helper/build
+/build/
+/coverage/
+/dist/
+/node_modules/
+/runtime/
+/.vscode-test/
+/*.vsix
+
 .DS_Store

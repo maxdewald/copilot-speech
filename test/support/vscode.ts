@@ -4,7 +4,7 @@ import { vi } from 'vitest'
 
 const base = createVSCodeMock(vi) as unknown as typeof vscode
 
-export const { EventEmitter, StatusBarAlignment, ThemeColor, ConfigurationTarget } = base
+export const { EventEmitter, StatusBarAlignment, ThemeColor, ConfigurationTarget, ProgressLocation } = base
 
 export enum UIKind {
   Desktop = 1,
@@ -58,6 +58,10 @@ export const window = {
   showWarningMessage: vi.fn(async () => undefined as string | undefined),
   showErrorMessage: vi.fn(async () => undefined as string | undefined),
   showQuickPick: vi.fn(async () => undefined as unknown),
+  withProgress: vi.fn(async (_options: unknown, task: (progress: { report: (value: unknown) => void }, token: { isCancellationRequested: boolean, onCancellationRequested: () => MockDisposable }) => Promise<unknown>) => task(
+    { report: vi.fn() },
+    { isCancellationRequested: false, onCancellationRequested: () => new MockDisposable() },
+  )),
 }
 
 export const workspace = {

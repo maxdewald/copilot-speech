@@ -1,15 +1,22 @@
 import type { ExtensionContext } from 'vscode'
+import process from 'node:process'
 import { env, UIKind, window, workspace } from 'vscode'
-import { deliverToChat } from './delivery/chat'
-import { registerCommands } from './extension/commands'
-import { createStatusBar } from './extension/status'
-import { HelperSupervisor } from './speech/helper-supervisor'
-import { DictationSession } from './speech/session'
+import { deliverToChat } from './chat-delivery'
+import { registerCommands } from './commands'
+import { DictationSession } from './dictation-session'
+import { HelperSupervisor } from './helper-process'
+import { createStatusBar } from './status-bar'
 
 export function activate(context: ExtensionContext): void {
   const output = window.createOutputChannel('Copilot Speech', { log: true })
   const helper = new HelperSupervisor(
-    () => workspace.getConfiguration('copilotSpeech').get('helperPath', ''),
+    () => {
+      const configuredPath = workspace.getConfiguration('copilotSpeech').get('helperPath', '').trim()
+      if (configuredPath)
+        return configuredPath
+      const executable = process.platform === 'win32' ? 'copilot-speech-helper.exe' : 'copilot-speech-helper'
+      return context.asAbsolutePath(`runtime/${process.platform}-${process.arch}/${executable}`)
+    },
     output,
   )
   const session = new DictationSession(helper, deliverToChat, output)
@@ -20,7 +27,7 @@ export function activate(context: ExtensionContext): void {
     helper,
     session,
     statusBar,
-    ...registerCommands(session),
+    ...registerCommands(context, session),
   )
 
   statusBar.show()

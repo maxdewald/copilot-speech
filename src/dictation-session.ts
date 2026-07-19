@@ -1,10 +1,10 @@
 import type { Disposable, Event, LogOutputChannel } from 'vscode'
-import type { SpeechHelper } from './helper-supervisor'
-import type { HelperEvent } from './protocol'
+import type { SpeechHelper } from './helper-process'
+import type { HelperEvent } from './helper-protocol'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'vscode'
 
-export type DictationState = 'idle' | 'starting' | 'recording' | 'stopping' | 'cancelling' | 'delivering' | 'error'
+export type DictationState = 'idle' | 'preparing' | 'starting' | 'recording' | 'stopping' | 'cancelling' | 'delivering' | 'error'
 
 export interface DictationSnapshot {
   state: DictationState
@@ -19,6 +19,7 @@ export interface DictationOptions {
 export class DictationSession implements Disposable {
   private readonly stateEmitter = new EventEmitter<DictationSnapshot>()
   private readonly helperSubscription: Disposable
+  private preparation: AbortController | undefined
   private currentSessionId: string | undefined
   private snapshot: DictationSnapshot = { state: 'idle', partialText: '' }
 
@@ -36,21 +37,37 @@ export class DictationSession implements Disposable {
     return this.snapshot
   }
 
-  async start(options: DictationOptions): Promise<void> {
+  async start(prepare: (signal: AbortSignal) => Promise<DictationOptions>): Promise<void> {
     if (this.snapshot.state !== 'idle' && this.snapshot.state !== 'error')
       return
 
-    const sessionId = randomUUID()
-    this.currentSessionId = sessionId
-    this.update({ state: 'starting', partialText: '' })
+    const preparation = new AbortController()
+    this.preparation = preparation
+    this.update({ state: 'preparing', partialText: '' })
     try {
+      const options = await prepare(preparation.signal)
+      if (preparation.signal.aborted) {
+        this.update({ state: 'idle', partialText: '' })
+        return
+      }
+      const sessionId = randomUUID()
+      this.currentSessionId = sessionId
+      this.update({ state: 'starting', partialText: '' })
       await this.helper.startSession({ sessionId, ...options })
     }
     catch (error) {
+      if (preparation.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+        this.update({ state: 'idle', partialText: '' })
+        return
+      }
       const message = error instanceof Error ? error.message : String(error)
       this.currentSessionId = undefined
       this.update({ state: 'error', partialText: '', error: message })
       throw error
+    }
+    finally {
+      if (this.preparation === preparation)
+        this.preparation = undefined
     }
   }
 
@@ -62,6 +79,11 @@ export class DictationSession implements Disposable {
   }
 
   cancel(): void {
+    if (this.snapshot.state === 'preparing') {
+      this.update({ ...this.snapshot, state: 'cancelling' })
+      this.preparation?.abort()
+      return
+    }
     if (this.currentSessionId === undefined || !['starting', 'recording', 'stopping'].includes(this.snapshot.state))
       return
     this.update({ ...this.snapshot, state: 'cancelling' })

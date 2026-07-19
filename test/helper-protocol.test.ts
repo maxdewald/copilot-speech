@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseHelperEvent, ProtocolError } from '../../src/helper-protocol'
+import { parseHelperEvent, ProtocolError } from '../src/helper-protocol'
 
 describe('parseHelperEvent', () => {
   it('parses final transcript events', () => {

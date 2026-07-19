@@ -37,7 +37,8 @@
     "README.md",
     "THIRD_PARTY_NOTICES.md",
     "dist/*",
-    "images/*"
+    "images/*",
+    "runtime/**/*"
   ],
   "engines": {
     "node": ">=22.18.0",
@@ -80,13 +81,13 @@
         "command": "copilotSpeech.startChatDictation",
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v",
-        "when": "!copilotSpeech.recording"
+        "when": "!copilotSpeech.active"
       },
       {
         "command": "copilotSpeech.stopDictation",
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v",
-        "when": "copilotSpeech.recording"
+        "when": "copilotSpeech.active"
       },
       {
         "command": "copilotSpeech.cancelDictation",
@@ -98,12 +99,12 @@
       "chat/input/status": [
         {
           "command": "copilotSpeech.startChatDictation",
-          "when": "!copilotSpeech.recording",
+          "when": "!copilotSpeech.active",
           "group": "navigation@10"
         },
         {
           "command": "copilotSpeech.stopDictation",
-          "when": "copilotSpeech.recording",
+          "when": "copilotSpeech.active",
           "group": "navigation@10"
         }
       ]
@@ -134,12 +135,12 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "native:configure": "cmake -S native/voice-helper -B native/voice-helper/build -DCMAKE_BUILD_TYPE=Release",
-    "native:build": "cmake --build native/voice-helper/build --config Release",
-    "native:test": "ctest --test-dir native/voice-helper/build --build-config Release --output-on-failure",
+    "native:configure": "cmake -S src/native -B build/native -DCMAKE_BUILD_TYPE=Release",
+    "native:build": "cmake --build build/native --config Release",
+    "native:test": "ctest --test-dir build/native --build-config Release --output-on-failure",
     "vscode:prepublish": "pnpm build",
-    "ext:package": "vsce package --no-dependencies",
-    "ext:publish": "vsce publish --no-dependencies"
+    "ext:package": "pnpm native:configure && pnpm native:build && vsce package --no-dependencies --target linux-x64 --ignore-other-target-folders",
+    "ext:publish": "vsce publish --no-dependencies --target linux-x64"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",

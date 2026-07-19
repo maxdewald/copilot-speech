@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { deliverToChat } from '../../src/chat-delivery'
-import { commands, env, resetVSCodeMock, window } from '../support/vscode'
+import { deliverToChat } from '../src/chat-delivery'
+import { commands, env, resetVSCodeMock, window } from './support/vscode'
 
 describe('chatTranscriptDelivery', () => {
   beforeEach(resetVSCodeMock)

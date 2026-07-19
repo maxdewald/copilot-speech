@@ -1,12 +1,12 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import type { Interface } from 'node:readline'
 import type { Disposable, Event, LogOutputChannel } from 'vscode'
-import type { HelperCommand, HelperEvent } from './protocol'
+import type { HelperCommand, HelperEvent } from './helper-protocol'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import { EventEmitter } from 'vscode'
-import { parseHelperEvent, PROTOCOL_VERSION } from './protocol'
+import { parseHelperEvent, PROTOCOL_VERSION } from './helper-protocol'
 
 export interface StartSessionOptions {
   sessionId: string
@@ -37,11 +37,7 @@ export class HelperSupervisor implements SpeechHelper {
 
   async startSession(options: StartSessionOptions): Promise<void> {
     await this.ensureRunning()
-    const recording = this.waitFor('recording')
     this.send({ type: 'start', ...options })
-    const event = await recording
-    if (event.sessionId !== options.sessionId)
-      throw new Error('Helper acknowledged a different dictation session.')
   }
 
   stopSession(sessionId: string): void {

@@ -37,22 +37,24 @@ Copilot Speech keeps microphone audio inside an isolated native helper, transcri
 	```bash
 	pnpm install
 	pnpm check
-	pnpm ext:package
 	```
 
-2. **Build the native protocol stub.**
+2. **Build and test the native helper.**
 
 	```bash
 	pnpm native:configure
 	pnpm native:build
 	pnpm native:test
+	pnpm ext:package
 	```
 
-3. **Point Copilot Speech at the helper.** Set `copilotSpeech.helperPath` to the built executable. On Linux, the default build location is:
+3. **Point Copilot Speech at the helper.** Set `copilotSpeech.helperPath` to the packaged executable. On Linux, the default location is:
 
 	```text
-	native/voice-helper/build/copilot-speech-helper
+	runtime/linux-x64/copilot-speech-helper
 	```
+
+	Packaged releases select the matching `linux-x64`, `win32-x64`, or `darwin-arm64` runtime automatically, so this setting is only needed for helper development.
 
 4. **Launch an end-to-end synthetic transcript.**
 
@@ -114,7 +116,7 @@ Copilot Speech declares `extensionKind: ["ui"]`, so it runs next to the desktop 
 
 ```bash
 pnpm install
-pnpm check          # lint + typecheck + tests + coverage + build
+pnpm check          # lint + typecheck + tests + build
 pnpm ext:package    # produce an installable .vsix
 ```
 
@@ -125,6 +127,10 @@ pnpm native:configure
 pnpm native:build
 pnpm native:test
 ```
+
+Native helper source lives under `src/native/`. Build dependencies and intermediates stay under `build/native/`; generated helper binaries are staged under the ignored `runtime/<platform>-<arch>/` tree for packaging.
+
+Release packages are platform-specific: `linux-x64`, `win32-x64`, and `darwin-arm64`. Each VSIX contains only the matching helper runtime.
 
 ## License
 

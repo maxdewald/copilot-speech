@@ -1,15 +1,16 @@
-import type { Disposable } from 'vscode'
-import type { DictationSession } from '../speech/session'
+import type { Disposable, ExtensionContext } from 'vscode'
+import type { DictationSession } from './dictation-session'
 import { commands, window, workspace } from 'vscode'
+import { ensureModel } from './model-download'
 
-export function registerCommands(session: DictationSession): Disposable[] {
+export function registerCommands(context: ExtensionContext, session: DictationSession): Disposable[] {
   return [
     commands.registerCommand('copilotSpeech.startChatDictation', async () => {
       const configuration = workspace.getConfiguration('copilotSpeech')
       try {
-        await session.start({
-          modelPath: configuration.get('modelPath', ''),
-        })
+        await session.start(async signal => ({
+          modelPath: configuration.get('modelPath', '') || await ensureModel(context, signal),
+        }))
       }
       catch (error) {
         const message = error instanceof Error ? error.message : String(error)

@@ -18,10 +18,10 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      OVSX_PAT: ${{ secrets.OVSX_PAT }}
-      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+    timeout-minutes: 10
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
 
     steps:
       - name: Run release-please
@@ -31,41 +31,104 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  package:
+    if: ${{ needs.release.outputs.release_created == 'true' }}
+    needs: release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win32-x64
+          - os: macos-15
+            target: darwin-arm64
+
+    steps:
       - name: Checkout
-        if: ${{ steps.release.outputs.release_created }}
         uses: actions/checkout@v7
         with:
+          ref: ${{ needs.release.outputs.tag_name }}
           fetch-depth: 0
 
       - name: Install pnpm
-        if: ${{ steps.release.outputs.release_created }}
         uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
-        if: ${{ steps.release.outputs.release_created }}
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
 
       - name: Install dependencies
-        if: ${{ steps.release.outputs.release_created }}
         run: pnpm install --frozen-lockfile
 
+      - name: Configure native helper
+        run: pnpm native:configure
+
+      - name: Build native helper
+        run: pnpm native:build
+
+      - name: Test native helper
+        run: pnpm native:test
+
+      - name: Build extension
+        run: pnpm build
+
       - name: Package extension
-        if: ${{ steps.release.outputs.release_created }}
-        run: pnpm ext:package
+        run: pnpm exec vsce package --no-dependencies --target ${{ matrix.target }} --ignore-other-target-folders --out copilot-speech-${{ matrix.target }}.vsix
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: copilot-speech-${{ matrix.target }}
+          path: copilot-speech-${{ matrix.target }}.vsix
+
+  publish:
+    if: ${{ needs.release.outputs.release_created == 'true' }}
+    needs: [release, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.tag_name }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: copilot-speech-*
+          merge-multiple: true
 
       - name: Upload VSIX to GitHub release
-        if: ${{ steps.release.outputs.release_created }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ steps.release.outputs.tag_name }}" ./*.vsix
+        run: gh release upload "${{ needs.release.outputs.tag_name }}" ./*.vsix
 
       - name: Publish to Open VSX
-        if: ${{ steps.release.outputs.release_created && env.OVSX_PAT != '' }}
-        run: npx --yes ovsx@1.0.2 publish ./*.vsix
+        if: ${{ env.OVSX_PAT != '' }}
+        run: for package in ./*.vsix; do npx --yes ovsx@1.0.2 publish "$package"; done
 
       - name: Publish to Visual Studio Marketplace
-        if: ${{ steps.release.outputs.release_created && env.VSCE_PAT != '' }}
-        run: pnpm exec vsce publish --packagePath ./*.vsix
+        if: ${{ env.VSCE_PAT != '' }}
+        run: for package in ./*.vsix; do pnpm exec vsce publish --packagePath "$package"; done

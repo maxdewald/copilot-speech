@@ -1,10 +1,10 @@
 import type { Event } from 'vscode'
-import type { SpeechHelper, StartSessionOptions } from '../../src/helper-process'
-import type { HelperEvent } from '../../src/helper-protocol'
+import type { SpeechHelper, StartSessionOptions } from '../src/helper-process'
+import type { HelperEvent } from '../src/helper-protocol'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'vscode'
-import { DictationSession } from '../../src/dictation-session'
-import { output, resetVSCodeMock } from '../support/vscode'
+import { DictationSession } from '../src/dictation-session'
+import { output, resetVSCodeMock } from './support/vscode'
 
 class FakeHelper implements SpeechHelper {
   private readonly emitter = new EventEmitter<HelperEvent>()

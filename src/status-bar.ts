@@ -1,5 +1,5 @@
 import type { StatusBarItem } from 'vscode'
-import type { DictationSession, DictationSnapshot } from '../speech/session'
+import type { DictationSession, DictationSnapshot } from './dictation-session'
 import { commands, StatusBarAlignment, ThemeColor, window } from 'vscode'
 
 export function createStatusBar(session: DictationSession): StatusBarItem {
@@ -13,6 +13,11 @@ export function createStatusBar(session: DictationSession): StatusBarItem {
         item.text = '$(mic) Speech'
         item.tooltip = 'Start Copilot Speech dictation'
         item.command = 'copilotSpeech.startChatDictation'
+        break
+      case 'preparing':
+        item.text = '$(loading~spin) Speech'
+        item.tooltip = 'Preparing local speech recognition'
+        item.command = 'copilotSpeech.cancelDictation'
         break
       case 'starting':
         item.text = '$(loading~spin) Speech'
@@ -45,6 +50,7 @@ export function createStatusBar(session: DictationSession): StatusBarItem {
     item.accessibilityInformation = {
       label: `Copilot Speech: ${snapshot.state}`,
     }
+    void commands.executeCommand('setContext', 'copilotSpeech.active', !['idle', 'error'].includes(snapshot.state))
     void commands.executeCommand('setContext', 'copilotSpeech.recording', snapshot.state === 'recording')
   }
 
