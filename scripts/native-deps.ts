@@ -14,10 +14,6 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const MINIAUDIO_VERSION = '0.11.25'
-const MINIAUDIO_SHA256 = 'ac7af4de748b7e26b777f37e01cee313a308a7296a3eb080e2906b320cc55c89'
-const NLOHMANN_JSON_VERSION = '3.12.0'
-const NLOHMANN_JSON_SHA256 = 'aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63'
 
 interface RuntimeCopy {
   from: string
@@ -28,7 +24,6 @@ interface Manifest {
   version: string
   target: string
   includeDir: string
-  thirdPartyDir: string
   library: string
   onnxRuntime: string
   extraLinkLibs: string[]
@@ -142,23 +137,12 @@ export async function ensureNativeDeps(
     }
   }
 
-  const thirdPartyDir = join(depsDir, 'third_party')
-  await download(
-    `https://raw.githubusercontent.com/mackron/miniaudio/${MINIAUDIO_VERSION}/miniaudio.h`,
-    join(thirdPartyDir, 'miniaudio.h'),
-    MINIAUDIO_SHA256,
-  )
-  await download(
-    `https://raw.githubusercontent.com/nlohmann/json/v${NLOHMANN_JSON_VERSION}/single_include/nlohmann/json.hpp`,
-    join(thirdPartyDir, 'nlohmann/json.hpp'),
-    NLOHMANN_JSON_SHA256,
-  )
+  // miniaudio + nlohmann/json are fetched by CMake (FetchContent) during configure.
 
   const manifest: Manifest = {
     version,
     target,
     includeDir,
-    thirdPartyDir,
     library,
     onnxRuntime,
     extraLinkLibs,
@@ -236,8 +220,6 @@ function manifestMatches(manifestPath: string, version: string, depsDir: string)
       manifest.onnxRuntime,
       ...(manifest.extraLinkLibs ?? []),
       join(manifest.includeDir ?? join(depsDir, 'include'), 'moonshine-cpp.h'),
-      join(manifest.thirdPartyDir ?? join(depsDir, 'third_party'), 'miniaudio.h'),
-      join(manifest.thirdPartyDir ?? join(depsDir, 'third_party'), 'nlohmann/json.hpp'),
     ]
     return required.every(path => typeof path === 'string' && existsSync(path))
   }
