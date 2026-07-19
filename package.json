@@ -131,6 +131,7 @@
     "build": "tsdown",
     "dev": "tsdown --watch --sourcemap",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -143,7 +144,7 @@
     "ext:publish": "vsce publish --no-dependencies --target linux-x64"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^9.0.0",
+    "@antfu/eslint-config": "^9.1.0",
     "@types/node": "^24.13.3",
     "@types/vscode": "^1.124.0",
     "@vscode/vsce": "^3.9.2",
