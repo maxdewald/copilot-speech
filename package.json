@@ -153,9 +153,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "native:configure": "node scripts/native.mjs configure",
-    "native:build": "node scripts/native.mjs build",
-    "native:test": "node scripts/native.mjs test",
+    "native:configure": "node --experimental-strip-types scripts/native.ts configure",
+    "native:build": "node --experimental-strip-types scripts/native.ts build",
+    "native:test": "node --experimental-strip-types scripts/native.ts test",
     "vscode:prepublish": "pnpm build",
     "artifacts:prepare": "node -e \"require('node:fs').mkdirSync('dist/artifacts', { recursive: true })\"",
     "ext:package": "pnpm native:configure && pnpm native:build && pnpm artifacts:prepare && vsce package --no-dependencies --target linux-x64 --ignore-other-target-folders --out dist/artifacts/copilot-speech-linux-x64.vsix"
