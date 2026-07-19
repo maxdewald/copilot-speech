@@ -32,6 +32,7 @@
     "Chat"
   ],
   "main": "./dist/extension/index.cjs",
+  "icon": "images/logo.png",
   "files": [
     "LICENSE.md",
     "README.md",
