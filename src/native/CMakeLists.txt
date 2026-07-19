@@ -150,6 +150,8 @@ target_include_directories(copilot-speech-helper SYSTEM PRIVATE
 )
 target_link_libraries(copilot-speech-helper PRIVATE moonshine)
 if(WIN32)
+  # MSVC deprecates getenv and treats that warning as an error under /WX.
+  target_compile_definitions(copilot-speech-helper PRIVATE _CRT_SECURE_NO_WARNINGS)
   target_link_libraries(copilot-speech-helper PRIVATE moonshine-utils ort-utils bin-tokenizer onnxruntime)
 elseif(APPLE)
   target_link_libraries(copilot-speech-helper PRIVATE
