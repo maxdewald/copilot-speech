@@ -102,6 +102,32 @@
     "configuration": {
       "title": "Copilot Speech",
       "properties": {
+        "copilotSpeech.language": {
+          "type": "string",
+          "default": "en",
+          "enum": [
+            "en",
+            "ar",
+            "es",
+            "ja",
+            "ko",
+            "uk",
+            "vi",
+            "zh"
+          ],
+          "enumDescriptions": [
+            "English",
+            "Arabic",
+            "Spanish",
+            "Japanese",
+            "Korean",
+            "Ukrainian",
+            "Vietnamese",
+            "Chinese"
+          ],
+          "scope": "machine",
+          "description": "Language used for local speech recognition. Copilot Speech downloads the best available Moonshine model for the selected language."
+        },
         "copilotSpeech.helperPath": {
           "type": "string",
           "default": "",

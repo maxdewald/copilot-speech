@@ -7,10 +7,15 @@ import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ProgressLocation, window } from 'vscode'
 
-const MODEL_ID = 'medium-streaming-en'
-const MODEL_BASE_URL = 'https://download.moonshine.ai/model/medium-streaming-en/quantized'
+export type SpeechLanguage = 'ar' | 'en' | 'es' | 'ja' | 'ko' | 'uk' | 'vi' | 'zh'
+export type ModelArchitecture = 0 | 1 | 5
 
-const MODEL_FILES = [
+export interface ModelSelection {
+  modelPath: string
+  modelArchitecture: ModelArchitecture
+}
+
+const STREAMING_MODEL_FILES = [
   'adapter.ort',
   'cross_kv.ort',
   'decoder_kv.ort',
@@ -21,19 +26,52 @@ const MODEL_FILES = [
   'decoder_kv_with_attention.ort',
 ] as const
 
-export async function ensureModel(context: ExtensionContext, signal: AbortSignal): Promise<string> {
-  const modelPath = join(context.globalStorageUri.fsPath, 'models', MODEL_ID)
-  if (await isInstalled(modelPath))
-    return modelPath
+const BASE_MODEL_FILES = [
+  'encoder_model.ort',
+  'decoder_model_merged.ort',
+  'tokenizer.bin',
+] as const
+
+const MODELS: Record<SpeechLanguage, {
+  id: string
+  name: string
+  architecture: ModelArchitecture
+  baseUrl: string
+  files: readonly string[]
+}> = {
+  ar: modelEntry('base-ar', 'Arabic'),
+  en: {
+    id: 'medium-streaming-en',
+    name: 'English',
+    architecture: 5,
+    baseUrl: 'https://download.moonshine.ai/model/medium-streaming-en/quantized',
+    files: STREAMING_MODEL_FILES,
+  },
+  es: modelEntry('base-es', 'Spanish'),
+  ja: modelEntry('base-ja', 'Japanese'),
+  ko: modelEntry('tiny-ko', 'Korean', 0),
+  uk: modelEntry('base-uk', 'Ukrainian'),
+  vi: modelEntry('base-vi', 'Vietnamese'),
+  zh: modelEntry('base-zh', 'Chinese'),
+}
+
+export async function ensureModel(context: ExtensionContext, language: SpeechLanguage, signal: AbortSignal, modelPath = ''): Promise<ModelSelection> {
+  const model = MODELS[language]
+  if (modelPath)
+    return { modelPath, modelArchitecture: model.architecture }
+
+  const installedPath = join(context.globalStorageUri.fsPath, 'models', model.id)
+  if (await isInstalled(installedPath))
+    return { modelPath: installedPath, modelArchitecture: model.architecture }
 
   const action = await window.showInformationMessage(
-    'Copilot Speech needs to download the 429 MB Moonshine Medium model. Audio remains on this device.',
+    `Copilot Speech needs to download the local Moonshine ${model.name} model. Audio remains on this device.`,
     'Download',
   )
   if (action !== 'Download')
     throw new DOMException('Model download was cancelled.', 'AbortError')
 
-  await mkdir(modelPath, { recursive: true })
+  await mkdir(installedPath, { recursive: true })
   await window.withProgress(
     {
       location: ProgressLocation.Notification,
@@ -46,8 +84,8 @@ export async function ensureModel(context: ExtensionContext, signal: AbortSignal
       signal.addEventListener('abort', abort, { once: true })
       const cancellation = token.onCancellationRequested(abort)
       try {
-        await downloadFiles(modelPath, progress, controller.signal)
-        await writeFile(join(modelPath, '.complete'), 'complete')
+        await downloadFiles(model, installedPath, progress, controller.signal)
+        await writeFile(join(installedPath, '.complete'), 'complete')
       }
       finally {
         cancellation.dispose()
@@ -55,7 +93,17 @@ export async function ensureModel(context: ExtensionContext, signal: AbortSignal
       }
     },
   )
-  return modelPath
+  return { modelPath: installedPath, modelArchitecture: model.architecture }
+}
+
+function modelEntry(id: string, name: string, architecture: ModelArchitecture = 1): typeof MODELS[SpeechLanguage] {
+  return {
+    id,
+    name,
+    architecture,
+    baseUrl: `https://download.moonshine.ai/model/${id}/quantized/${id}`,
+    files: BASE_MODEL_FILES,
+  }
 }
 
 async function isInstalled(modelPath: string): Promise<boolean> {
@@ -67,12 +115,12 @@ async function isInstalled(modelPath: string): Promise<boolean> {
   }
 }
 
-async function downloadFiles(modelPath: string, progress: Progress<{ increment?: number, message?: string }>, signal: AbortSignal): Promise<void> {
-  for (const name of MODEL_FILES) {
+async function downloadFiles(model: typeof MODELS[SpeechLanguage], modelPath: string, progress: Progress<{ increment?: number, message?: string }>, signal: AbortSignal): Promise<void> {
+  for (const name of model.files) {
     const destination = join(modelPath, name)
     const partial = `${destination}.part`
     await rm(partial, { force: true })
-    const response = await fetch(`${MODEL_BASE_URL}/${name}`, { signal })
+    const response = await fetch(`${model.baseUrl}/${name}`, { signal })
     if (!response.ok || response.body === null)
       throw new Error(`Model download failed for ${name}: HTTP ${response.status}`)
 

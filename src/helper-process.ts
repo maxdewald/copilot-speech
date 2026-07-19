@@ -11,6 +11,7 @@ import { parseHelperEvent, PROTOCOL_VERSION } from './helper-protocol'
 export interface StartSessionOptions {
   sessionId: string
   modelPath: string
+  modelArchitecture: number
 }
 
 export interface SpeechHelper extends Disposable {

@@ -1,8 +1,8 @@
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 2
 
 export type HelperCommand
   = | { type: 'hello', protocolVersion: number }
-    | { type: 'start', sessionId: string, modelPath: string }
+    | { type: 'start', sessionId: string, modelPath: string, modelArchitecture: number }
     | { type: 'stop', sessionId: string }
     | { type: 'cancel', sessionId: string }
 

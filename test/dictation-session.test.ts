@@ -33,6 +33,8 @@ class FakeHelper implements SpeechHelper {
   }
 }
 
+const model = { modelPath: '/models/medium', modelArchitecture: 5 } as const
+
 describe('dictationSession', () => {
   beforeEach(resetVSCodeMock)
 
@@ -41,7 +43,7 @@ describe('dictationSession', () => {
     const deliver = vi.fn(async () => {})
     const session = new DictationSession(helper, deliver, output)
 
-    await session.start(async () => ({ modelPath: '/models/medium' }))
+    await session.start(async () => model)
     expect(session.state.state).toBe('recording')
 
     session.stop()
@@ -54,11 +56,11 @@ describe('dictationSession', () => {
     const deliver = vi.fn(async () => {})
     const session = new DictationSession(helper, deliver, output)
 
-    await session.start(async () => ({ modelPath: '/models/medium' }))
+    await session.start(async () => model)
     session.stop()
     await vi.waitFor(() => expect(session.state.state).toBe('idle'))
 
-    await session.start(async () => ({ modelPath: '/models/medium' }))
+    await session.start(async () => model)
     const sessionId = helper.startOptions!.sessionId
     helper.fire({ type: 'final', sessionId, text: 'and more speech' })
 
@@ -71,7 +73,7 @@ describe('dictationSession', () => {
     const deliver = vi.fn(async () => {})
     const session = new DictationSession(helper, deliver, output)
 
-    await session.start(async () => ({ modelPath: '/models/medium' }))
+    await session.start(async () => model)
     const sessionId = helper.startOptions!.sessionId
     helper.fire({ type: 'partial', sessionId, text: 'Hello' })
     helper.fire({ type: 'partial', sessionId, text: 'Hello from speech' })
@@ -86,7 +88,7 @@ describe('dictationSession', () => {
     const deliver = vi.fn(async () => {})
     const session = new DictationSession(helper, deliver, output)
 
-    await session.start(async () => ({ modelPath: '' }))
+    await session.start(async () => ({ ...model, modelPath: '' }))
     session.cancel()
 
     expect(session.state.state).toBe('idle')
@@ -97,7 +99,7 @@ describe('dictationSession', () => {
     const helper = new FakeHelper()
     const session = new DictationSession(helper, vi.fn(async () => {}), output)
     const start = session.start(async signal => new Promise((resolve) => {
-      signal.addEventListener('abort', () => resolve({ modelPath: '' }), { once: true })
+      signal.addEventListener('abort', () => resolve({ ...model, modelPath: '' }), { once: true })
     }))
 
     expect(session.state.state).toBe('preparing')

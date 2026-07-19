@@ -1,5 +1,6 @@
 import type { Disposable, ExtensionContext, LogOutputChannel } from 'vscode'
 import type { DictationSession } from './dictation-session'
+import type { SpeechLanguage } from './model-download'
 import { commands, window, workspace } from 'vscode'
 import { ensureModel } from './model-download'
 
@@ -9,9 +10,12 @@ export function registerCommands(context: ExtensionContext, session: DictationSe
       const configuration = workspace.getConfiguration('copilotSpeech')
       output.info('Start dictation requested.')
       try {
-        await session.start(async signal => ({
-          modelPath: configuration.get('modelPath', '') || await ensureModel(context, signal),
-        }))
+        await session.start(async signal => ensureModel(
+          context,
+          configuration.get<SpeechLanguage>('language', 'en'),
+          signal,
+          configuration.get('modelPath', ''),
+        ))
       }
       catch (error) {
         const message = error instanceof Error ? error.message : String(error)

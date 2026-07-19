@@ -14,6 +14,7 @@ export interface DictationSnapshot {
 
 export interface DictationOptions {
   modelPath: string
+  modelArchitecture: number
 }
 
 export class DictationSession implements Disposable {

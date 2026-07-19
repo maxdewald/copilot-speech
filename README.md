@@ -26,6 +26,7 @@ Copilot Speech keeps microphone audio inside an isolated native helper, transcri
 - **Your voice stays private** - audio never leaves your device, and no transcript history is kept.
 - **You decide when to send** - dictated text lands in Copilot Chat as an editable draft, so you can review and edit before submitting.
 - **Responsive as you speak** - text appears live while you talk, so you always know it's listening.
+- **Speak your language** - choose English, Arabic, Spanish, Japanese, Korean, Ukrainian, Vietnamese, or Chinese.
 - **Works with remote workspaces** - dictate locally even when your code lives in SSH, WSL, or a Dev Container.
 
 ## Why Moonshine
@@ -35,9 +36,9 @@ The official VS Code Speech extension also works offline, using the Azure Speech
 - **Faster-feeling conversations** - Moonshine processes speech as you talk, reducing the wait after you finish a sentence.
 - **Live, useful feedback** - the transcript updates continuously instead of making you wonder whether your speech was understood.
 - **A model you can inspect** - Moonshine publishes its model details, research, and benchmarks instead of hiding the recognition engine behind an SDK.
-- **Focused on accurate English dictation** - the Medium Streaming model prioritizes recognition quality while remaining practical to run locally.
+- **Best available model for each language** - English uses Moonshine Medium Streaming; every other language uses the highest-quality Moonshine model currently published for it.
 
-Copilot Speech currently supports English only. VS Code Speech supports 26 languages, so broader language support remains an area for improvement.
+Moonshine's non-English model weights are released under the [Moonshine Community License](https://moonshine.ai/license) for non-commercial use.
 
 ## Try the draft
 
@@ -111,6 +112,7 @@ The helper owns raw PCM, capture, voice activity detection, and inference. This 
 
 | Setting | Default | Description |
 | --- | --- | --- |
+| `copilotSpeech.language` | `en` | Recognition language and local Moonshine model to use |
 | `copilotSpeech.helperPath` | `""` | Development path to a native helper build |
 | `copilotSpeech.modelPath` | `""` | Development path to an unpacked Moonshine model |
 

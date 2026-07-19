@@ -22,7 +22,7 @@ namespace {
 
 using Json = nlohmann::json;
 
-constexpr int kProtocolVersion = 1;
+constexpr int kProtocolVersion = 2;
 constexpr int kSampleRate = 16000;
 constexpr ma_uint32 kMaxQueuedFrames = kSampleRate * 5;
 constexpr ma_uint32 kReadFrames = 4096;
@@ -50,6 +50,14 @@ std::string required_string(const Json& command, const char* key) {
                                 "\" must be a string.");
   }
   return command.at(key).get<std::string>();
+}
+
+int required_integer(const Json& command, const char* key) {
+  if (!command.contains(key) || !command.at(key).is_number_integer()) {
+    throw std::invalid_argument(std::string("Command field \"") + key +
+                                "\" must be an integer.");
+  }
+  return command.at(key).get<int>();
 }
 
 std::string transcript_text(
@@ -231,7 +239,8 @@ class Helper {
               {"helperVersion", "0.1.0"}});
       } else if (type == "start") {
         start(required_string(command, "sessionId"),
-              required_string(command, "modelPath"));
+              required_string(command, "modelPath"),
+              required_integer(command, "modelArchitecture"));
       } else if (type == "stop") {
         request(SessionRequest::stop,
                 required_string(command, "sessionId"));
@@ -247,7 +256,8 @@ class Helper {
     }
   }
 
-  void start(const std::string& session_id, const std::string& model_path) {
+  void start(const std::string& session_id, const std::string& model_path,
+             int model_architecture) {
     const char* stub = std::getenv("COPILOT_SPEECH_STUB_TRANSCRIPT");
     if (session_id.empty() || (model_path.empty() && stub == nullptr)) {
       emit_error("invalid_command", "Start requires sessionId and modelPath.",
@@ -267,7 +277,8 @@ class Helper {
     }
 
     join_worker();
-    worker_ = std::thread(&Helper::run_session, this, session_id, model_path);
+    worker_ = std::thread(&Helper::run_session, this, session_id, model_path,
+                model_architecture);
   }
 
   void request(SessionRequest value, const std::string& session_id) {
@@ -293,7 +304,7 @@ class Helper {
   }
 
   void run_session(const std::string& session_id,
-                   const std::string& model_path) {
+                   const std::string& model_path, int model_architecture) {
     const char* stub = std::getenv("COPILOT_SPEECH_STUB_TRANSCRIPT");
     if (stub != nullptr) {
       run_stub_session(session_id, stub);
@@ -308,7 +319,8 @@ class Helper {
 
     try {
       moonshine::Transcriber transcriber(
-          model_path, moonshine::ModelArch::MEDIUM_STREAMING, 0.5);
+          model_path, static_cast<moonshine::ModelArch>(model_architecture),
+          0.5);
       if (request_.load() == SessionRequest::cancel) {
         emit({{"type", "cancelled"}, {"sessionId", session_id}});
         finish_session(session_id);
