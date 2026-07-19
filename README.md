@@ -51,7 +51,7 @@ Copilot Speech keeps microphone audio inside an isolated native helper, transcri
 3. **Point Copilot Speech at the helper.** Set `copilotSpeech.helperPath` to the packaged executable. On Linux, the default location is:
 
 	```text
-	runtime/linux-x64/copilot-speech-helper
+	dist/native/runtime/linux-x64/copilot-speech-helper
 	```
 
 	Packaged releases select the matching `linux-x64`, `win32-x64`, or `darwin-arm64` runtime automatically, so this setting is only needed for helper development.
@@ -112,26 +112,6 @@ Copilot Speech declares `extensionKind: ["ui"]`, so it runs next to the desktop 
 
 </details>
 
-## Development
-
-```bash
-pnpm install
-pnpm check          # lint + typecheck + tests + build
-pnpm ext:package    # produce an installable .vsix
-```
-
-Native helper commands:
-
-```bash
-pnpm native:configure
-pnpm native:build
-pnpm native:test
-```
-
-Native helper source lives under `src/native/`. Build dependencies and intermediates stay under `build/native/`; generated helper binaries are staged under the ignored `runtime/<platform>-<arch>/` tree for packaging.
-
-Release packages are platform-specific: `linux-x64`, `win32-x64`, and `darwin-arm64`. Each VSIX contains only the matching helper runtime.
-
 ## License
 
-[MIT](./LICENSE.md) - see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for planned runtime and model dependencies.
+[MIT](./LICENSE.md)

@@ -31,14 +31,13 @@
     "AI",
     "Chat"
   ],
-  "main": "./dist/index.cjs",
+  "main": "./dist/extension/index.cjs",
   "files": [
     "LICENSE.md",
     "README.md",
-    "THIRD_PARTY_NOTICES.md",
-    "dist/*",
-    "images/*",
-    "runtime/**/*"
+    "dist/extension/*",
+    "dist/native/runtime/**/*",
+    "images/*"
   ],
   "engines": {
     "node": ">=22.18.0",
@@ -133,15 +132,16 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage.enabled --coverage.reportsDirectory dist/coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "native:configure": "cmake -S src/native -B build/native -DCMAKE_BUILD_TYPE=Release",
-    "native:build": "cmake --build build/native --config Release",
-    "native:test": "ctest --test-dir build/native --build-config Release --output-on-failure",
+    "native:configure": "node scripts/native.mjs configure",
+    "native:build": "node scripts/native.mjs build",
+    "native:test": "node scripts/native.mjs test",
     "vscode:prepublish": "pnpm build",
-    "ext:package": "pnpm native:configure && pnpm native:build && vsce package --no-dependencies --target linux-x64 --ignore-other-target-folders",
-    "ext:publish": "vsce publish --no-dependencies --target linux-x64"
+    "artifacts:prepare": "node -e \"require('node:fs').mkdirSync('dist/artifacts', { recursive: true })\"",
+    "ext:package": "pnpm native:configure && pnpm native:build && pnpm artifacts:prepare && vsce package --no-dependencies --target linux-x64 --ignore-other-target-folders --out dist/artifacts/copilot-speech-linux-x64.vsix"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",

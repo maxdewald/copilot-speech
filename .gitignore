@@ -1,9 +1,5 @@
-/build/
-/coverage/
 /dist/
 /node_modules/
-/runtime/
 /.vscode-test/
-/*.vsix
 
 .DS_Store

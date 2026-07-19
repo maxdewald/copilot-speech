@@ -66,26 +66,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Configure native helper
-        run: pnpm native:configure
-
-      - name: Build native helper
-        run: pnpm native:build
-
-      - name: Test native helper
-        run: pnpm native:test
+      - name: Build and test native helper
+        run: pnpm native:configure && pnpm native:build && pnpm native:test
 
       - name: Build extension
         run: pnpm build
 
+      - name: Prepare artifacts
+        run: pnpm artifacts:prepare
+
       - name: Package extension
-        run: pnpm exec vsce package --no-dependencies --target ${{ matrix.target }} --ignore-other-target-folders --out copilot-speech-${{ matrix.target }}.vsix
+        run: pnpm exec vsce package --no-dependencies --target ${{ matrix.target }} --ignore-other-target-folders --out dist/artifacts/copilot-speech-${{ matrix.target }}.vsix
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v6
         with:
           name: copilot-speech-${{ matrix.target }}
-          path: copilot-speech-${{ matrix.target }}.vsix
+          path: dist/artifacts/copilot-speech-${{ matrix.target }}.vsix
 
   publish:
     if: ${{ needs.release.outputs.release_created == 'true' }}
@@ -119,16 +116,17 @@ jobs:
         with:
           pattern: copilot-speech-*
           merge-multiple: true
+          path: dist/artifacts
 
       - name: Upload VSIX to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ needs.release.outputs.tag_name }}" ./*.vsix
+        run: gh release upload "${{ needs.release.outputs.tag_name }}" dist/artifacts/*.vsix
 
       - name: Publish to Open VSX
         if: ${{ env.OVSX_PAT != '' }}
-        run: for package in ./*.vsix; do npx --yes ovsx@1.0.2 publish "$package"; done
+        run: for package in dist/artifacts/*.vsix; do npx --yes ovsx@1.0.2 publish "$package"; done
 
       - name: Publish to Visual Studio Marketplace
         if: ${{ env.VSCE_PAT != '' }}
-        run: for package in ./*.vsix; do pnpm exec vsce publish --packagePath "$package"; done
+        run: for package in dist/artifacts/*.vsix; do pnpm exec vsce publish --packagePath "$package"; done

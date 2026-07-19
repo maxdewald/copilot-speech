@@ -15,7 +15,7 @@ export function activate(context: ExtensionContext): void {
       if (configuredPath)
         return configuredPath
       const executable = process.platform === 'win32' ? 'copilot-speech-helper.exe' : 'copilot-speech-helper'
-      return context.asAbsolutePath(`runtime/${process.platform}-${process.arch}/${executable}`)
+      return context.asAbsolutePath(`dist/native/runtime/${process.platform}-${process.arch}/${executable}`)
     },
     output,
   )
@@ -35,5 +35,3 @@ export function activate(context: ExtensionContext): void {
   if (env.uiKind !== UIKind.Desktop)
     void window.showWarningMessage('Copilot Speech requires desktop VS Code because transcription runs beside your local microphone.')
 }
-
-export function deactivate(): void {}

@@ -43,8 +43,7 @@ export async function ensureModel(context: ExtensionContext, signal: AbortSignal
     async (progress, token) => {
       const controller = new AbortController()
       const abort = (): void => controller.abort()
-      const parentAbort = (): void => controller.abort()
-      signal.addEventListener('abort', parentAbort, { once: true })
+      signal.addEventListener('abort', abort, { once: true })
       const cancellation = token.onCancellationRequested(abort)
       try {
         await downloadFiles(modelPath, progress, controller.signal)
@@ -52,7 +51,7 @@ export async function ensureModel(context: ExtensionContext, signal: AbortSignal
       }
       finally {
         cancellation.dispose()
-        signal.removeEventListener('abort', parentAbort)
+        signal.removeEventListener('abort', abort)
       }
     },
   )

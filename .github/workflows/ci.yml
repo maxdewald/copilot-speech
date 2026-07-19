@@ -39,33 +39,6 @@ jobs:
       - name: Check
         run: pnpm check
 
-  test-platforms:
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Test
-        run: pnpm test
-
   native-helper:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
@@ -84,15 +57,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Configure
-        run: cmake -S src/native -B build/native -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build build/native --config Release
-
-      - name: Test
-        run: ctest --test-dir build/native --build-config Release --output-on-failure
-
       - name: Install pnpm
         uses: pnpm/action-setup@v6
 
@@ -105,11 +69,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build and test native helper
+        run: pnpm native:configure && pnpm native:build && pnpm native:test
+
+      - name: Prepare artifacts
+        run: pnpm artifacts:prepare
+
       - name: Package extension
-        run: pnpm exec vsce package --no-dependencies --target ${{ matrix.target }} --ignore-other-target-folders --out copilot-speech-${{ matrix.target }}.vsix
+        run: pnpm exec vsce package --no-dependencies --target ${{ matrix.target }} --ignore-other-target-folders --out dist/artifacts/copilot-speech-${{ matrix.target }}.vsix
 
       - name: Upload package
         uses: actions/upload-artifact@v6
         with:
           name: copilot-speech-${{ matrix.target }}
-          path: copilot-speech-${{ matrix.target }}.vsix
+          path: dist/artifacts/copilot-speech-${{ matrix.target }}.vsix
