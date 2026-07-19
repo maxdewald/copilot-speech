@@ -37,7 +37,9 @@ export class HelperSupervisor implements SpeechHelper {
 
   async startSession(options: StartSessionOptions): Promise<void> {
     await this.ensureRunning()
+    const recording = this.waitForSession('recording', options.sessionId, 30_000)
     this.send({ type: 'start', ...options })
+    await recording
   }
 
   stopSession(sessionId: string): void {
@@ -74,13 +76,17 @@ export class HelperSupervisor implements SpeechHelper {
     this.child = child
     this.lines = createInterface({ input: child.stdout })
     this.lines.on('line', line => this.handleLine(line))
-    child.stderr.resume()
+    child.stderr.setEncoding('utf8')
+    child.stderr.on('data', (chunk: string) => {
+      for (const line of chunk.split(/\r?\n/).filter(Boolean))
+        this.output.error(`[native] ${line}`)
+    })
     child.on('error', error => this.handleProcessFailure(`Native helper failed: ${error.message}`))
     child.on('exit', (code, signal) => {
       this.child = undefined
       this.lines?.close()
       this.lines = undefined
-      if (!this.disposed && code !== 0)
+      if (!this.disposed)
         this.handleProcessFailure(`Native helper exited with code ${code ?? 'none'} and signal ${signal ?? 'none'}.`)
     })
 
@@ -116,7 +122,35 @@ export class HelperSupervisor implements SpeechHelper {
   private send(command: HelperCommand): void {
     if (!this.child || this.child.killed || !this.child.stdin.writable)
       throw new HelperUnavailableError('Native helper is not running.')
+    this.output.debug(`helper command: ${command.type}`)
     this.child.stdin.write(`${JSON.stringify(command)}\n`)
+  }
+
+  private async waitForSession<T extends Extract<HelperEvent, { sessionId: string }>['type']>(
+    type: T,
+    sessionId: string,
+    timeoutMs: number,
+  ): Promise<Extract<HelperEvent, { type: T }>> {
+    return new Promise((resolve, reject) => {
+      let subscription: Disposable | undefined
+      const timeout = setTimeout(() => {
+        subscription?.dispose()
+        reject(new Error(`Timed out waiting for native helper event: ${type}`))
+      }, timeoutMs)
+      subscription = this.onEvent((event) => {
+        if (event.type === 'error') {
+          clearTimeout(timeout)
+          subscription?.dispose()
+          reject(new Error(`${event.code}: ${event.message}`))
+          return
+        }
+        if (event.type !== type || !('sessionId' in event) || event.sessionId !== sessionId)
+          return
+        clearTimeout(timeout)
+        subscription?.dispose()
+        resolve(event as Extract<HelperEvent, { type: T }>)
+      })
+    })
   }
 
   private async waitFor<T extends HelperEvent['type']>(type: T, timeoutMs = 5000): Promise<Extract<HelperEvent, { type: T }>> {

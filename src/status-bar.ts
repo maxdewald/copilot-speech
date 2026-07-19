@@ -26,7 +26,7 @@ export function createStatusBar(session: DictationSession): StatusBarItem {
         break
       case 'recording':
         item.text = '$(record) Listening'
-        item.tooltip = snapshot.partialText || 'Stop dictation and prefill Copilot Chat'
+        item.tooltip = 'Stop dictation and finish transcription in Copilot Chat'
         item.command = 'copilotSpeech.stopDictation'
         break
       case 'stopping':

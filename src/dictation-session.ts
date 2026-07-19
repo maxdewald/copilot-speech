@@ -22,6 +22,8 @@ export class DictationSession implements Disposable {
   private preparation: AbortController | undefined
   private currentSessionId: string | undefined
   private snapshot: DictationSnapshot = { state: 'idle', partialText: '' }
+  private lastDeliveredPartial = ''
+  private partialDelivery = Promise.resolve()
 
   readonly onDidChangeState: Event<DictationSnapshot> = this.stateEmitter.event
 
@@ -103,12 +105,25 @@ export class DictationSession implements Disposable {
       case 'hello':
         break
       case 'recording':
+        this.lastDeliveredPartial = ''
         this.update({ state: 'recording', partialText: '' })
         break
-      case 'partial':
-        this.update({ state: 'recording', partialText: event.text })
+      case 'partial': {
+        const transcript = event.text.trim()
+        this.update({ state: 'recording', partialText: transcript })
+        if (transcript && transcript !== this.lastDeliveredPartial) {
+          this.lastDeliveredPartial = transcript
+          this.partialDelivery = this.partialDelivery
+            .then(async () => this.deliverTranscript(transcript))
+            .catch((error) => {
+              const message = error instanceof Error ? error.message : String(error)
+              this.output.error(`Partial transcript delivery failed: ${message}`)
+            })
+        }
         break
+      }
       case 'final':
+        await this.partialDelivery
         await this.deliver(event.text)
         break
       case 'cancelled':
