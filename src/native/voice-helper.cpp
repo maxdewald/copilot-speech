@@ -1,7 +1,24 @@
-#define MINIAUDIO_IMPLEMENTATION
-#include <miniaudio.h>
+// Include Moonshine before miniaudio. On Windows, miniaudio pulls in
+// windows.h/wingdi.h, which defines ERROR as a macro and breaks the
+// moonshine::TranscriptEvent::Type enum member named ERROR.
 #include <moonshine-cpp.h>
 #include <nlohmann/json.hpp>
+
+#ifdef _WIN32
+# ifndef WIN32_LEAN_AND_MEAN
+#  define WIN32_LEAN_AND_MEAN
+# endif
+# ifndef NOMINMAX
+#  define NOMINMAX
+# endif
+#endif
+
+#define MINIAUDIO_IMPLEMENTATION
+#include <miniaudio.h>
+
+#ifdef ERROR
+# undef ERROR
+#endif
 
 #include <algorithm>
 #include <atomic>
