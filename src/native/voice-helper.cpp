@@ -1,7 +1,9 @@
-// Include Moonshine before miniaudio. On Windows, miniaudio pulls in
-// windows.h/wingdi.h, which defines ERROR as a macro and breaks the
-// moonshine::TranscriptEvent::Type enum member named ERROR.
-#include <moonshine-cpp.h>
+// Capture-only native helper. Owns the microphone and streams raw PCM to the
+// extension host over a bounded NDJSON stdio protocol. All voice activity
+// detection and speech recognition happen in the Node worker; this process
+// deliberately contains no ML code so that a crash cannot take down VS Code and
+// so that the runtime has no ONNX or model dependencies.
+
 #include <nlohmann/json.hpp>
 
 #ifdef _WIN32
@@ -16,21 +18,13 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include <miniaudio.h>
 
-#ifdef ERROR
-# undef ERROR
-#endif
-
-#include <algorithm>
 #include <atomic>
 #include <condition_variable>
-#include <cstring>
 #include <cstdint>
-#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <optional>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -39,12 +33,43 @@ namespace {
 
 using Json = nlohmann::json;
 
-constexpr int kProtocolVersion = 2;
+constexpr int kProtocolVersion = 3;
 constexpr int kSampleRate = 16000;
 constexpr ma_uint32 kMaxQueuedFrames = kSampleRate * 5;
-constexpr ma_uint32 kReadFrames = 4096;
+constexpr ma_uint32 kReadFrames = 1600;  // ~100 ms at 16 kHz
 
 enum class SessionRequest { none, stop, cancel };
+
+const char kBase64Alphabet[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+std::string base64_encode(const uint8_t* data, size_t length) {
+  std::string out;
+  out.reserve(((length + 2) / 3) * 4);
+  size_t i = 0;
+  for (; i + 2 < length; i += 3) {
+    const uint32_t triple =
+        (static_cast<uint32_t>(data[i]) << 16) |
+        (static_cast<uint32_t>(data[i + 1]) << 8) |
+        static_cast<uint32_t>(data[i + 2]);
+    out.push_back(kBase64Alphabet[(triple >> 18) & 0x3F]);
+    out.push_back(kBase64Alphabet[(triple >> 12) & 0x3F]);
+    out.push_back(kBase64Alphabet[(triple >> 6) & 0x3F]);
+    out.push_back(kBase64Alphabet[triple & 0x3F]);
+  }
+  if (i < length) {
+    uint32_t triple = static_cast<uint32_t>(data[i]) << 16;
+    const bool has_two = (i + 1) < length;
+    if (has_two) {
+      triple |= static_cast<uint32_t>(data[i + 1]) << 8;
+    }
+    out.push_back(kBase64Alphabet[(triple >> 18) & 0x3F]);
+    out.push_back(kBase64Alphabet[(triple >> 12) & 0x3F]);
+    out.push_back(has_two ? kBase64Alphabet[(triple >> 6) & 0x3F] : '=');
+    out.push_back('=');
+  }
+  return out;
+}
 
 void emit(const Json& event) {
   static std::mutex output_mutex;
@@ -69,85 +94,31 @@ std::string required_string(const Json& command, const char* key) {
   return command.at(key).get<std::string>();
 }
 
-int required_integer(const Json& command, const char* key) {
-  if (!command.contains(key) || !command.at(key).is_number_integer()) {
-    throw std::invalid_argument(std::string("Command field \"") + key +
-                                "\" must be an integer.");
+// Convert float samples in [-1, 1] to interleaved little-endian Int16 PCM and
+// emit them as a base64-encoded `pcm` event.
+void emit_pcm(const std::string& session_id, const float* samples,
+              size_t frame_count) {
+  if (frame_count == 0) {
+    return;
   }
-  return command.at(key).get<int>();
+  std::vector<uint8_t> bytes(frame_count * 2);
+  for (size_t i = 0; i < frame_count; ++i) {
+    float clamped = samples[i];
+    if (clamped > 1.0f) {
+      clamped = 1.0f;
+    } else if (clamped < -1.0f) {
+      clamped = -1.0f;
+    }
+    const int32_t scaled =
+        static_cast<int32_t>(clamped * 32767.0f + (clamped >= 0 ? 0.5f : -0.5f));
+    const int16_t value = static_cast<int16_t>(scaled);
+    bytes[i * 2] = static_cast<uint8_t>(value & 0xFF);
+    bytes[i * 2 + 1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+  }
+  emit({{"type", "pcm"},
+        {"sessionId", session_id},
+        {"data", base64_encode(bytes.data(), bytes.size())}});
 }
-
-std::string transcript_text(
-    const std::vector<std::pair<uint64_t, std::string>>& lines) {
-  std::string text;
-  for (const auto& [_, line] : lines) {
-    if (line.empty()) {
-      continue;
-    }
-    if (!text.empty()) {
-      text.push_back(' ');
-    }
-    text += line;
-  }
-  return text;
-}
-
-class TranscriptListener final : public moonshine::TranscriptEventListener {
- public:
-  TranscriptListener(std::string session_id,
-                     const std::atomic<SessionRequest>& request)
-      : session_id_(std::move(session_id)), request_(request) {}
-
-  void onLineStarted(const moonshine::LineStarted& event) override {
-    update(event.line);
-  }
-
-  void onLineTextChanged(
-      const moonshine::LineTextChanged& event) override {
-    update(event.line);
-  }
-
-  void onLineCompleted(const moonshine::LineCompleted& event) override {
-    update(event.line);
-  }
-
-  void onError(const moonshine::Error& event) override {
-    error_ = event.errorMessage;
-  }
-
-  std::string text() const { return transcript_text(lines_); }
-
-  const std::optional<std::string>& error() const { return error_; }
-
- private:
-  std::string session_id_;
-  const std::atomic<SessionRequest>& request_;
-  std::vector<std::pair<uint64_t, std::string>> lines_;
-  std::string last_text_;
-  std::optional<std::string> error_;
-
-  void update(const moonshine::TranscriptLine& line) {
-    const auto existing = std::find_if(
-        lines_.begin(), lines_.end(),
-        [&line](const auto& value) { return value.first == line.lineId; });
-    if (existing == lines_.end()) {
-      lines_.emplace_back(line.lineId, line.text);
-    } else {
-      existing->second = line.text;
-    }
-    const std::string text = transcript_text(lines_);
-    if (text == last_text_) {
-      return;
-    }
-    last_text_ = text;
-    if (request_.load() != SessionRequest::none) {
-      return;
-    }
-    emit({{"type", "partial"},
-          {"sessionId", session_id_},
-          {"text", text}});
-  }
-};
 
 class Helper {
  public:
@@ -255,9 +226,7 @@ class Helper {
               {"protocolVersion", kProtocolVersion},
               {"helperVersion", "0.1.0"}});
       } else if (type == "start") {
-        start(required_string(command, "sessionId"),
-              required_string(command, "modelPath"),
-              required_integer(command, "modelArchitecture"));
+        start(required_string(command, "sessionId"));
       } else if (type == "stop") {
         request(SessionRequest::stop,
                 required_string(command, "sessionId"));
@@ -273,12 +242,9 @@ class Helper {
     }
   }
 
-  void start(const std::string& session_id, const std::string& model_path,
-             int model_architecture) {
-    const char* stub = std::getenv("COPILOT_SPEECH_STUB_TRANSCRIPT");
-    if (session_id.empty() || (model_path.empty() && stub == nullptr)) {
-      emit_error("invalid_command", "Start requires sessionId and modelPath.",
-                 session_id);
+  void start(const std::string& session_id) {
+    if (session_id.empty()) {
+      emit_error("invalid_command", "Start requires sessionId.", session_id);
       return;
     }
 
@@ -294,8 +260,7 @@ class Helper {
     }
 
     join_worker();
-    worker_ = std::thread(&Helper::run_session, this, session_id, model_path,
-                model_architecture);
+    worker_ = std::thread(&Helper::run_session, this, session_id);
   }
 
   void request(SessionRequest value, const std::string& session_id) {
@@ -320,11 +285,10 @@ class Helper {
     }
   }
 
-  void run_session(const std::string& session_id,
-                   const std::string& model_path, int model_architecture) {
+  void run_session(const std::string& session_id) {
     const char* stub = std::getenv("COPILOT_SPEECH_STUB_TRANSCRIPT");
     if (stub != nullptr) {
-      run_stub_session(session_id, stub);
+      run_stub_session(session_id);
       finish_session(session_id);
       return;
     }
@@ -335,17 +299,11 @@ class Helper {
     auto capture = std::make_shared<CaptureContext>();
 
     try {
-      moonshine::Transcriber transcriber(
-          model_path, static_cast<moonshine::ModelArch>(model_architecture),
-          0.5);
       if (request_.load() == SessionRequest::cancel) {
-        emit({{"type", "cancelled"}, {"sessionId", session_id}});
+        emit({{"type", "stopped"}, {"sessionId", session_id}});
         finish_session(session_id);
         return;
       }
-      TranscriptListener listener(session_id, request_);
-      transcriber.addListener(&listener);
-      transcriber.start();
 
       {
         const std::lock_guard lock(state_mutex_);
@@ -368,7 +326,7 @@ class Helper {
         ma_device_uninit(&device);
         device_initialized = false;
         clear_capture(capture);
-        emit({{"type", "cancelled"}, {"sessionId", session_id}});
+        emit({{"type", "stopped"}, {"sessionId", session_id}});
         finish_session(session_id);
         return;
       }
@@ -420,12 +378,7 @@ class Helper {
           break;
         }
         if (readable > 0) {
-          chunk.resize(readable);
-          transcriber.addAudio(chunk, kSampleRate);
-          chunk.resize(kReadFrames);
-          if (listener.error()) {
-            throw std::runtime_error(*listener.error());
-          }
+          emit_pcm(session_id, chunk.data(), readable);
           continue;
         }
         if (current == SessionRequest::stop) {
@@ -443,17 +396,9 @@ class Helper {
       device_initialized = false;
       clear_capture(capture);
 
-      if (request_.load() == SessionRequest::cancel) {
-        emit({{"type", "cancelled"}, {"sessionId", session_id}});
-      } else {
-        transcriber.stop();
-        if (listener.error()) {
-          throw std::runtime_error(*listener.error());
-        }
-        emit({{"type", "final"},
-              {"sessionId", session_id},
-              {"text", listener.text()}});
-      }
+      // Capture has ended and all PCM has been flushed. Cancellation vs.
+      // finalization is decided by the worker, which knows what it requested.
+      emit({{"type", "stopped"}, {"sessionId", session_id}});
     } catch (const std::exception& error) {
       if (device_started) {
         capture->expected_stop = true;
@@ -469,21 +414,14 @@ class Helper {
     finish_session(session_id);
   }
 
-  void run_stub_session(const std::string& session_id,
-                        const std::string& transcript) {
+  void run_stub_session(const std::string& session_id) {
     emit({{"type", "recording"}, {"sessionId", session_id}});
     {
       std::unique_lock lock(state_mutex_);
       request_changed_.wait(
           lock, [this] { return request_.load() != SessionRequest::none; });
     }
-    if (request_.load() == SessionRequest::cancel) {
-      emit({{"type", "cancelled"}, {"sessionId", session_id}});
-    } else {
-      emit({{"type", "final"},
-            {"sessionId", session_id},
-            {"text", transcript}});
-    }
+    emit({{"type", "stopped"}, {"sessionId", session_id}});
   }
 
   void clear_capture(const std::shared_ptr<CaptureContext>& capture) {

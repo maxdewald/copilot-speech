@@ -1,21 +1,43 @@
-import type { Disposable, ExtensionContext, LogOutputChannel } from 'vscode'
+import type { Disposable, LogOutputChannel } from 'vscode'
 import type { DictationSession } from './dictation-session'
-import type { SpeechLanguage } from './model-download'
 import { commands, window, workspace } from 'vscode'
-import { ensureModel } from './model-download'
 
-export function registerCommands(context: ExtensionContext, session: DictationSession, output: LogOutputChannel): Disposable[] {
+// Languages supported by Cohere Transcribe 03-2026. The model does not auto-detect
+// language, so the user picks one and it is passed to the ASR pipeline.
+const SPEECH_LANGUAGES = [
+  'en',
+  'fr',
+  'de',
+  'it',
+  'es',
+  'pt',
+  'nl',
+  'pl',
+  'el',
+  'ar',
+  'ja',
+  'zh',
+  'vi',
+  'ko',
+] as const
+
+type SpeechLanguage = typeof SPEECH_LANGUAGES[number]
+
+function normalizeLanguage(value: string): SpeechLanguage {
+  return (SPEECH_LANGUAGES as readonly string[]).includes(value)
+    ? value as SpeechLanguage
+    : 'en'
+}
+
+export function registerCommands(session: DictationSession, output: LogOutputChannel): Disposable[] {
   return [
     commands.registerCommand('copilotSpeech.startChatDictation', async () => {
       const configuration = workspace.getConfiguration('copilotSpeech')
       output.info('Start dictation requested.')
       try {
-        await session.start(async signal => ensureModel(
-          context,
-          configuration.get<SpeechLanguage>('language', 'en'),
-          signal,
-          configuration.get('modelPath', ''),
-        ))
+        await session.start(async () => ({
+          language: normalizeLanguage(configuration.get('language', 'en')),
+        }))
       }
       catch (error) {
         const message = error instanceof Error ? error.message : String(error)

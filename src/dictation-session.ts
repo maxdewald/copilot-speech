@@ -1,6 +1,5 @@
 import type { Disposable, Event, LogOutputChannel } from 'vscode'
-import type { SpeechHelper } from './helper-process'
-import type { HelperEvent } from './helper-protocol'
+import type { SpeechEngine, SpeechEvent } from './worker-speech-engine'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'vscode'
 
@@ -13,8 +12,7 @@ export interface DictationSnapshot {
 }
 
 export interface DictationOptions {
-  modelPath: string
-  modelArchitecture: number
+  language: string
 }
 
 export class DictationSession implements Disposable {
@@ -30,7 +28,7 @@ export class DictationSession implements Disposable {
   readonly onDidChangeState: Event<DictationSnapshot> = this.stateEmitter.event
 
   constructor(
-    private readonly helper: SpeechHelper,
+    private readonly helper: SpeechEngine,
     private readonly deliverTranscript: (transcript: string) => Promise<void>,
     private readonly output: LogOutputChannel,
   ) {
@@ -99,12 +97,13 @@ export class DictationSession implements Disposable {
     this.stateEmitter.dispose()
   }
 
-  private async handleHelperEvent(event: HelperEvent): Promise<void> {
+  private async handleHelperEvent(event: SpeechEvent): Promise<void> {
     if ('sessionId' in event && event.sessionId !== undefined && event.sessionId !== this.currentSessionId)
       return
 
     switch (event.type) {
-      case 'hello':
+      case 'modelProgress':
+        this.output.debug(`model progress: ${event.message}`)
         break
       case 'recording':
         this.lastDeliveredPartial = ''

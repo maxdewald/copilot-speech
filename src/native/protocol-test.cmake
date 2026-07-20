@@ -1,4 +1,4 @@
-set(input "not-json\n{\"type\":\"hello\",\"protocolVersion\":2}\n{\"type\":\"start\",\"sessionId\":\"test\\\"quoted\",\"modelPath\":\"\",\"modelArchitecture\":5}\n{\"type\":\"cancel\",\"sessionId\":\"test\\\"quoted\"}\n{\"type\":\"stop\",\"sessionId\":\"test\\\"quoted\"}\n")
+set(input "not-json\n{\"type\":\"hello\",\"protocolVersion\":3}\n{\"type\":\"start\",\"sessionId\":\"test\\\"quoted\"}\n{\"type\":\"cancel\",\"sessionId\":\"test\\\"quoted\"}\n{\"type\":\"stop\",\"sessionId\":\"test\\\"quoted\"}\n")
 set(input_file "${CMAKE_CURRENT_BINARY_DIR}/protocol-input.ndjson")
 file(WRITE "${input_file}" "${input}")
 
@@ -20,9 +20,9 @@ endif()
 
 foreach(expected IN ITEMS
   "\"code\":\"invalid_command\""
-  "{\"helperVersion\":\"0.1.0\",\"protocolVersion\":2,\"type\":\"hello\"}"
+  "{\"helperVersion\":\"0.1.0\",\"protocolVersion\":3,\"type\":\"hello\"}"
   "{\"sessionId\":\"test\\\"quoted\",\"type\":\"recording\"}"
-  "{\"sessionId\":\"test\\\"quoted\",\"type\":\"cancelled\"}"
+  "{\"sessionId\":\"test\\\"quoted\",\"type\":\"stopped\"}"
 )
   string(FIND "${output}" "${expected}" position)
   if(position EQUAL -1)

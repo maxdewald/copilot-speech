@@ -1,17 +1,16 @@
-export const PROTOCOL_VERSION = 2
+export const PROTOCOL_VERSION = 3
 
 export type HelperCommand
   = | { type: 'hello', protocolVersion: number }
-    | { type: 'start', sessionId: string, modelPath: string, modelArchitecture: number }
+    | { type: 'start', sessionId: string }
     | { type: 'stop', sessionId: string }
     | { type: 'cancel', sessionId: string }
 
 export type HelperEvent
   = | { type: 'hello', protocolVersion: number, helperVersion: string }
     | { type: 'recording', sessionId: string }
-    | { type: 'partial', sessionId: string, text: string }
-    | { type: 'final', sessionId: string, text: string }
-    | { type: 'cancelled', sessionId: string }
+    | { type: 'pcm', sessionId: string, data: string }
+    | { type: 'stopped', sessionId: string }
     | { type: 'error', code: string, message: string, sessionId?: string }
 
 export class ProtocolError extends Error {}
@@ -36,14 +35,13 @@ export function parseHelperEvent(line: string): HelperEvent {
         helperVersion: requiredString(event, 'helperVersion'),
       }
     case 'recording':
-    case 'cancelled':
+    case 'stopped':
       return { type, sessionId: requiredString(event, 'sessionId') }
-    case 'partial':
-    case 'final':
+    case 'pcm':
       return {
         type,
         sessionId: requiredString(event, 'sessionId'),
-        text: requiredString(event, 'text'),
+        data: requiredString(event, 'data'),
       }
     case 'error': {
       const sessionId = optionalString(event, 'sessionId')

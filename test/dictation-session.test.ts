@@ -1,14 +1,13 @@
 import type { Event } from 'vscode'
-import type { SpeechHelper, StartSessionOptions } from '../src/helper-process'
-import type { HelperEvent } from '../src/helper-protocol'
+import type { SpeechEngine, SpeechEvent, StartSessionOptions } from '../src/worker-speech-engine'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'vscode'
 import { DictationSession } from '../src/dictation-session'
 import { output, resetVSCodeMock } from './support/vscode'
 
-class FakeHelper implements SpeechHelper {
-  private readonly emitter = new EventEmitter<HelperEvent>()
-  readonly onEvent: Event<HelperEvent> = this.emitter.event
+class FakeHelper implements SpeechEngine {
+  private readonly emitter = new EventEmitter<SpeechEvent>()
+  readonly onEvent: Event<SpeechEvent> = this.emitter.event
   startOptions: StartSessionOptions | undefined
 
   async startSession(options: StartSessionOptions): Promise<void> {
@@ -24,7 +23,7 @@ class FakeHelper implements SpeechHelper {
     this.emitter.fire({ type: 'cancelled', sessionId })
   }
 
-  fire(event: HelperEvent): void {
+  fire(event: SpeechEvent): void {
     this.emitter.fire(event)
   }
 
@@ -33,7 +32,7 @@ class FakeHelper implements SpeechHelper {
   }
 }
 
-const model = { modelPath: '/models/medium', modelArchitecture: 5 } as const
+const model = { language: 'en' } as const
 
 describe('dictationSession', () => {
   beforeEach(resetVSCodeMock)
@@ -88,7 +87,7 @@ describe('dictationSession', () => {
     const deliver = vi.fn(async () => {})
     const session = new DictationSession(helper, deliver, output)
 
-    await session.start(async () => ({ ...model, modelPath: '' }))
+    await session.start(async () => model)
     session.cancel()
 
     expect(session.state.state).toBe('idle')
@@ -99,7 +98,7 @@ describe('dictationSession', () => {
     const helper = new FakeHelper()
     const session = new DictationSession(helper, vi.fn(async () => {}), output)
     const start = session.start(async signal => new Promise((resolve) => {
-      signal.addEventListener('abort', () => resolve({ ...model, modelPath: '' }), { once: true })
+      signal.addEventListener('abort', () => resolve(model), { once: true })
     }))
 
     expect(session.state.state).toBe('preparing')

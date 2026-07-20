@@ -1,3 +1,7 @@
+minimumReleaseAgeExclude:
+  - tsdown@0.22.12
+  - verkit@0.1.0
+
 shellEmulator: true
 
 trustPolicy: no-downgrade
@@ -9,3 +13,6 @@ allowBuilds:
   '@vscode/vsce-sign': true
   esbuild: true
   keytar: true
+  onnxruntime-node: true
+  protobufjs: false
+  sharp: false

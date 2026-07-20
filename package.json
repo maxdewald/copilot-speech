@@ -25,7 +25,7 @@
     "dictation",
     "speech-to-text",
     "voice",
-    "whisper"
+    "cohere"
   ],
   "categories": [
     "AI",
@@ -42,7 +42,7 @@
   ],
   "engines": {
     "node": ">=22.18.0",
-    "vscode": "^1.124.0"
+    "vscode": "^1.125.0"
   },
   "extensionKind": [
     "ui"
@@ -108,38 +108,44 @@
           "default": "en",
           "enum": [
             "en",
-            "ar",
+            "fr",
+            "de",
+            "it",
             "es",
+            "pt",
+            "nl",
+            "pl",
+            "el",
+            "ar",
             "ja",
-            "ko",
-            "uk",
+            "zh",
             "vi",
-            "zh"
+            "ko"
           ],
-          "enumDescriptions": [
+          "enumItemLabels": [
             "English",
-            "Arabic",
+            "French",
+            "German",
+            "Italian",
             "Spanish",
+            "Portuguese",
+            "Dutch",
+            "Polish",
+            "Greek",
+            "Arabic",
             "Japanese",
-            "Korean",
-            "Ukrainian",
+            "Chinese",
             "Vietnamese",
-            "Chinese"
+            "Korean"
           ],
           "scope": "machine",
-          "description": "Language used for local speech recognition. Copilot Speech downloads the best available Moonshine model for the selected language."
+          "description": "Language spoken during dictation. Cohere Transcribe does not auto-detect language, so pick the one you will speak. The model is downloaded and cached on first use."
         },
         "copilotSpeech.helperPath": {
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Optional path to a Copilot Speech native helper build. Intended for development until managed runtime downloads are published."
-        },
-        "copilotSpeech.modelPath": {
-          "type": "string",
-          "default": "",
-          "scope": "machine",
-          "description": "Optional path to an unpacked Moonshine model. Intended for native-helper development until managed model downloads are published."
+          "description": "Optional path to a Copilot Speech native capture helper build. Intended for development until managed runtime downloads are published."
         }
       }
     }
@@ -159,16 +165,20 @@
     "native:test": "node --experimental-strip-types scripts/native.ts test",
     "vscode:prepublish": "pnpm build",
     "artifacts:prepare": "node -e \"require('node:fs').mkdirSync('dist/artifacts', { recursive: true })\"",
-    "ext:package": "pnpm native:configure && pnpm native:build && pnpm artifacts:prepare && vsce package --no-dependencies --target linux-x64 --ignore-other-target-folders --out dist/artifacts/copilot-speech-linux-x64.vsix"
+    "ext:package": "pnpm native:configure && pnpm native:build && pnpm artifacts:prepare && vsce package --target linux-x64 --ignore-other-target-folders --out dist/artifacts/copilot-speech-linux-x64.vsix"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "@ricky0123/vad-web": "^0.0.30"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",
     "@types/node": "^24.13.3",
-    "@types/vscode": "^1.124.0",
+    "@types/vscode": "^1.125.0",
     "@vscode/vsce": "^3.9.2",
     "eslint": "^10.7.0",
     "jest-mock-vscode": "^4.12.0",
-    "tsdown": "^0.22.3",
+    "tsdown": "^0.22.12",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }

@@ -18,14 +18,14 @@
 
 </div>
 
-Copilot Speech keeps microphone audio inside an isolated native helper, transcribes it with a local streaming model, and prefills Copilot Chat for review. No cloud transcription service, no automatic submission, and no transcript history.
+Copilot Speech captures microphone audio in an isolated native helper (miniaudio), strips non-speech with Silero VAD, transcribes locally with [Cohere Transcribe](https://huggingface.co/CohereLabs/cohere-transcribe-03-2026), and prefills Copilot Chat for review. No cloud transcription service, no automatic submission, and no transcript history.
 
 ## Highlights
 
-- **Powered by Moonshine AI** - speech recognition runs entirely on your machine with the local [Moonshine](https://github.com/moonshine-ai/moonshine) Medium Streaming model. [Moonshine's benchmarks](https://github.com/moonshine-ai/moonshine#when-should-you-choose-moonshine-over-whisper) put Medium Streaming at **6.65% WER** on the [OpenASR leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) — better than Whisper Large v3 (7.44%) with about one-sixth the parameters (245M vs 1.5B) and end-of-phrase latency around **100ms** for short utterances instead of multi-second waits. Nothing is ever sent to the cloud.
-- **Your voice stays private** - audio never leaves your device, and no transcript history is kept.
-- **Responsive as you speak** - text appears live while you talk, so you always know it's listening.
-- **Speak your language** - choose English, Arabic, Spanish, Japanese, Korean, Ukrainian, Vietnamese, or Chinese. Non-English Moonshine model weights use the [Moonshine Community License](https://moonshine.ai/license) for non-commercial use.
+- **Powered by Cohere Transcribe** - a 2B-parameter multilingual speech model (Apache-2.0) runs entirely on your machine through [Transformers.js](https://huggingface.co/docs/transformers.js) and ONNX Runtime. Nothing is ever sent to the cloud. The model (~1.5 GB, `q4f16`) is downloaded and cached the first time you dictate.
+- **Your voice stays private** - audio never leaves your device, stays out of the extension host, and no transcript history is kept.
+- **Silero voice activity detection** - neural VAD removes silence and background noise before transcription so the model sees clean speech.
+- **Speak your language** - choose from 14 languages including English, German, French, Spanish, Italian, Portuguese, Dutch, Polish, Greek, Arabic, Japanese, Chinese, Vietnamese, or Korean. Cohere Transcribe does not auto-detect language, so pick the one you will speak.
 
 ## Quickstart
 
@@ -33,29 +33,30 @@ Requires **desktop VS Code 1.124+** (not the browser).
 
 1. Install **Copilot Speech** from the Extensions view.
 2. Press `Ctrl+Alt+V` / `Cmd+Alt+V` (or run **Copilot Speech: Start Chat Dictation**).
-3. Speak. Partial text appears as you talk.
-4. Press the same shortcut again to stop. The final transcript is prefilled into Copilot Chat — review and send when ready.
-5. Press `Escape` while recording to cancel and discard.
+3. Speak, then press the same shortcut again to stop. The transcript is prefilled into Copilot Chat — review and send when ready.
+4. Press `Escape` while recording to cancel and discard.
 
-Optional: set `copilotSpeech.language` if you are not dictating in English. The first run downloads the local Moonshine model for that language.
+Optional: set `copilotSpeech.language` to the language you will speak (default English). The first run downloads the Cohere Transcribe model (~1.5 GB) and caches it for later.
 
 ## How it works
 
-The extension coordinates a local helper process instead of loading microphone or inference code into the extension host.
+Microphone capture lives in a small native helper (miniaudio) — the only place VS Code allows microphone access — while Silero VAD and speech recognition run in a Node worker thread, off the extension-host thread.
 
 ```mermaid
 flowchart LR
 	Command[Command or keybinding] --> Session[Dictation session]
-	Session -->|bounded NDJSON| Helper[Native helper]
-	Helper --> Capture[Microphone capture]
-	Capture --> Moonshine[Moonshine streaming ASR]
-	Moonshine -->|partial and final events| Helper
-	Helper -->|versioned events| Session
+	Session -->|control| Worker[Transcription worker]
+	Worker -->|bounded NDJSON| Helper[Native capture helper]
+	Helper --> Capture[miniaudio microphone]
+	Capture -->|PCM frames| Worker
+	Worker --> VAD[Silero VAD]
+	VAD --> Cohere[Cohere Transcribe ONNX]
+	Cohere -->|final transcript| Session
 	Session --> Delivery[Chat delivery adapter]
 	Delivery -->|prefill only| Chat[Copilot Chat]
 ```
 
-The helper owns raw PCM, capture, voice activity detection, and inference. This keeps audio outside the extension host, prevents a helper crash from taking down VS Code, and avoids Electron or Node native-addon ABI coupling.
+The native helper only captures audio and streams raw PCM; it contains no ML code. On stop, the worker runs Silero VAD over the recording, then transcribes the remaining speech once. This keeps audio off the extension-host thread, prevents a helper crash from taking down VS Code, and avoids Electron/Node native-addon ABI coupling in the capture process.
 
 ## Reference
 
@@ -75,9 +76,8 @@ The helper owns raw PCM, capture, voice activity detection, and inference. This 
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `copilotSpeech.language` | `en` | Recognition language and local Moonshine model to use |
-| `copilotSpeech.helperPath` | `""` | Development path to a native helper build |
-| `copilotSpeech.modelPath` | `""` | Development path to an unpacked Moonshine model |
+| `copilotSpeech.language` | `en` | Language you will speak (Cohere Transcribe does not auto-detect) |
+| `copilotSpeech.helperPath` | `""` | Development path to a native capture helper build |
 
 </details>
 
