@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/maxdewald/copilot-speech/compare/v0.3.0...v0.3.1) (2026-07-21)
+
+
+### Documentation
+
+* update intro and add background section to README ([68328ad](https://github.com/maxdewald/copilot-speech/commit/68328adbd18a759b1f666ae85934c2175575a218))
+
 ## [0.3.0](https://github.com/maxdewald/copilot-speech/compare/v0.2.0...v0.3.0) (2026-07-21)
 
 
