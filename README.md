@@ -49,14 +49,14 @@ flowchart LR
 	Worker -->|bounded NDJSON| Helper[Native capture helper]
 	Helper --> Capture[miniaudio microphone]
 	Capture -->|PCM frames| Worker
-	Worker --> VAD[Silero VAD]
-	VAD --> Cohere[Cohere Transcribe ONNX]
-	Cohere -->|final transcript| Session
-	Session --> Delivery[Chat delivery adapter]
-	Delivery -->|prefill only| Chat[Copilot Chat]
+	Worker -->|rolling preview| CoherePreview[Cohere Transcribe ONNX]
+	CoherePreview -->|partial text| Session
+	Session -->|live chat preview| Chat[Copilot Chat]
+	Worker -->|on stop: full VAD + ASR| CohereFinal[Full clean transcript]
+	CohereFinal -->|final replaces preview| Chat
 ```
 
-The native helper only captures audio and streams raw PCM; it contains no ML code. On stop, the worker runs Silero VAD over the recording, then transcribes the remaining speech once. This keeps audio off the extension-host thread, prevents a helper crash from taking down VS Code, and avoids Electron/Node native-addon ABI coupling in the capture process.
+The native helper only captures audio and streams raw PCM; it contains no ML code. While you speak, the worker periodically transcribes a recent speech window and shows approximate text in Copilot Chat for feedback. On stop, it runs Silero VAD over the full recording and re-transcribes once for a clean final result that replaces the preview. This keeps audio off the extension-host thread, prevents a helper crash from taking down VS Code, and avoids Electron/Node native-addon ABI coupling in the capture process.
 
 ## Reference
 

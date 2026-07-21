@@ -9,7 +9,15 @@ import process from 'node:process'
 import { createInterface } from 'node:readline'
 import { isMainThread, parentPort, workerData } from 'node:worker_threads'
 import { parseHelperEvent, PROTOCOL_VERSION } from './helper-protocol'
-import { decodePcm16, SileroVad } from './silero-vad'
+import { decodePcm16, openEndpointer, SileroEndpointer, SileroVad } from './silero-vad'
+
+const SAMPLE_RATE = 16000
+/** Minimum time between preview ASR starts. */
+const PREVIEW_INTERVAL_MS = 1000
+/** Stop recording and finalize after this much continuous non-speech. */
+export const SILENCE_AUTO_STOP_MS = 5000
+const MIN_SPEECH_SAMPLES = Math.floor(0.45 * SAMPLE_RATE)
+const MAX_PREVIEW_SAMPLES = 20 * SAMPLE_RATE
 
 function cleanStalePartialDownloads(dir: string): void {
   let entries: string[]
@@ -64,24 +72,90 @@ export type WorkerEvent
 
 type Transcribe = (audio: Float32Array, language: string) => Promise<string>
 
-class TranscriptionSession {
+/** Duck-typed pause gate used by previews (SileroEndpointer or openEndpointer stub). */
+export interface PreviewEndpointer {
+  speaking: boolean
+  push: (samples: Float32Array) => Promise<{ speaking: boolean, speechEnded: boolean }>
+  reset: () => void
+}
+
+/** Exported for unit tests with an injected endpointer. */
+export class TranscriptionSession {
   private readonly buffer: number[] = []
+  private previewsClosed = false
+  private previewInFlight = false
+  /** True only after Silero reports SpeechEnd until that segment is previewed once. */
+  private previewPending = false
+  private autoStopRequested = false
+  private lastPreviewStartedAt = Date.now()
+  private lastPartialText = ''
+  private previewTimer: ReturnType<typeof setTimeout> | undefined
+  private silenceTimer: ReturnType<typeof setTimeout> | undefined
+  private previewIdle: (() => void) | undefined
+  private pcmQueue: Promise<void> = Promise.resolve()
 
   constructor(
     readonly sessionId: string,
     private readonly language: string,
     private readonly transcribe: Transcribe,
     private readonly extractSpeech: (audio: Float32Array) => Promise<Float32Array>,
+    private readonly endpointer: PreviewEndpointer,
     private readonly emit: (event: WorkerEvent) => void,
-  ) {}
+    private readonly requestStop: () => void = () => {},
+  ) {
+    // Initial silence also ends the take (user never starts speaking).
+    this.armSilenceTimer()
+  }
 
   addPcm(base64: string): void {
     const samples = decodePcm16(base64)
     for (let i = 0; i < samples.length; i++)
       this.buffer.push(samples[i] ?? 0)
+
+    this.pcmQueue = this.pcmQueue
+      .then(async () => {
+        if (this.previewsClosed)
+          return
+        const { speaking, speechEnded } = await this.endpointer.push(samples)
+        if (speaking) {
+          this.clearSilenceTimer()
+        }
+        else {
+          // Arm/restart only when speech just ended, or the timer was cleared while speaking.
+          if (speechEnded || this.silenceTimer === undefined)
+            this.armSilenceTimer()
+        }
+        // Only re-run ASR after a real utterance ends — not on every silence chunk.
+        if (speechEnded)
+          this.previewPending = true
+        if (!this.previewsClosed)
+          this.trySchedulePreview()
+      })
+      .catch(() => {})
+  }
+
+  stopPreviews(): void {
+    this.previewsClosed = true
+    this.clearSilenceTimer()
+    if (this.previewTimer !== undefined) {
+      clearTimeout(this.previewTimer)
+      this.previewTimer = undefined
+    }
+  }
+
+  async waitForPreviewIdle(): Promise<void> {
+    await this.pcmQueue.catch(() => {})
+    if (!this.previewInFlight)
+      return
+    await new Promise<void>((resolve) => {
+      this.previewIdle = resolve
+    })
   }
 
   async finalize(): Promise<void> {
+    this.stopPreviews()
+    await this.waitForPreviewIdle()
+
     const audio = Float32Array.from(this.buffer)
     if (audio.length === 0) {
       this.emit({ type: 'final', sessionId: this.sessionId, text: '' })
@@ -97,6 +171,82 @@ class TranscriptionSession {
     const text = (await this.transcribe(speech, this.language)).trim()
     this.emit({ type: 'final', sessionId: this.sessionId, text })
   }
+
+  private trySchedulePreview(): void {
+    if (this.previewsClosed || this.previewInFlight || !this.previewPending)
+      return
+
+    const wait = Math.max(0, PREVIEW_INTERVAL_MS - (Date.now() - this.lastPreviewStartedAt))
+    if (wait > 0) {
+      if (this.previewTimer !== undefined)
+        return
+      this.previewTimer = setTimeout(() => {
+        this.previewTimer = undefined
+        this.trySchedulePreview()
+      }, wait)
+      return
+    }
+
+    if (this.endpointer.speaking)
+      return
+
+    if (this.previewTimer !== undefined) {
+      clearTimeout(this.previewTimer)
+      this.previewTimer = undefined
+    }
+    void this.runPreview()
+  }
+
+  private async runPreview(): Promise<void> {
+    if (this.previewsClosed || this.previewInFlight || this.endpointer.speaking || !this.previewPending)
+      return
+
+    this.previewInFlight = true
+    this.lastPreviewStartedAt = Date.now()
+    try {
+      const audio = Float32Array.from(this.buffer.slice(-MAX_PREVIEW_SAMPLES))
+      // Keep pending so a later silence chunk can retry once the buffer is long enough.
+      if (audio.length < MIN_SPEECH_SAMPLES)
+        return
+
+      // Consume the SpeechEnd trigger before ASR so long pauses cannot re-fire.
+      this.previewPending = false
+      const text = (await this.transcribe(audio, this.language)).trim()
+      if (this.previewsClosed || !text || text === this.lastPartialText)
+        return
+
+      this.lastPartialText = text
+      this.emit({ type: 'partial', sessionId: this.sessionId, text })
+    }
+    catch {
+      // Previews are best-effort; finalization remains authoritative.
+    }
+    finally {
+      this.previewInFlight = false
+      this.previewIdle?.()
+      this.previewIdle = undefined
+    }
+  }
+
+  private armSilenceTimer(): void {
+    if (this.previewsClosed || this.autoStopRequested)
+      return
+    this.clearSilenceTimer()
+    this.silenceTimer = setTimeout(() => {
+      this.silenceTimer = undefined
+      if (this.previewsClosed || this.autoStopRequested || this.endpointer.speaking)
+        return
+      this.autoStopRequested = true
+      this.requestStop()
+    }, SILENCE_AUTO_STOP_MS)
+  }
+
+  private clearSilenceTimer(): void {
+    if (this.silenceTimer === undefined)
+      return
+    clearTimeout(this.silenceTimer)
+    this.silenceTimer = undefined
+  }
 }
 
 class Worker {
@@ -105,6 +255,7 @@ class Worker {
   private session: TranscriptionSession | undefined
   private transcriber: Transcribe | undefined
   private vad: SileroVad | undefined
+  private endpointer: PreviewEndpointer | undefined
   private helloResolve: (() => void) | undefined
   private readonly cancelledSessions = new Set<string>()
 
@@ -131,8 +282,18 @@ class Worker {
     try {
       const transcribe = await this.ensureTranscriber()
       const extractSpeech = await this.ensureSpeechExtractor()
+      const endpointer = await this.ensureEndpointer()
+      endpointer.reset()
       await this.ensureHelper()
-      this.session = new TranscriptionSession(sessionId, language, transcribe, extractSpeech, this.emit)
+      this.session = new TranscriptionSession(
+        sessionId,
+        language,
+        transcribe,
+        extractSpeech,
+        endpointer,
+        this.emit,
+        () => this.stop(sessionId),
+      )
       this.send({ type: 'start', sessionId })
     }
     catch (error) {
@@ -144,12 +305,14 @@ class Worker {
   private stop(sessionId: string): void {
     if (!this.session || this.session.sessionId !== sessionId)
       return
+    this.session.stopPreviews()
     this.send({ type: 'stop', sessionId })
   }
 
   private cancel(sessionId: string): void {
     if (!this.session || this.session.sessionId !== sessionId)
       return
+    this.session.stopPreviews()
     this.send({ type: 'cancel', sessionId })
   }
 
@@ -201,6 +364,20 @@ class Worker {
       this.vad = await SileroVad.create(this.data.vadModelPath)
     }
     return async audio => this.vad!.extractSpeech(audio)
+  }
+
+  private async ensureEndpointer(): Promise<PreviewEndpointer> {
+    if (this.endpointer)
+      return this.endpointer
+
+    if (process.env.COPILOT_SPEECH_STUB_TRANSCRIPT !== undefined) {
+      this.endpointer = openEndpointer()
+      return this.endpointer
+    }
+
+    this.emit({ type: 'modelProgress', message: 'Loading voice activity model…' })
+    this.endpointer = await SileroEndpointer.create(this.data.vadModelPath)
+    return this.endpointer
   }
 
   private async ensureHelper(): Promise<void> {
@@ -283,7 +460,9 @@ class Worker {
     if (!session || session.sessionId !== sessionId)
       return
     this.session = undefined
+    session.stopPreviews()
     if (this.cancelledSessions.delete(sessionId)) {
+      await session.waitForPreviewIdle()
       this.emit({ type: 'cancelled', sessionId })
       return
     }

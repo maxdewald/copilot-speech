@@ -1,4 +1,5 @@
 import type { Disposable, Event, LogOutputChannel } from 'vscode'
+import type { ChatDelivery } from './chat-delivery'
 import type { SpeechEngine, SpeechEvent } from './worker-speech-engine'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'vscode'
@@ -15,18 +16,21 @@ export interface DictationOptions {
   language: string
 }
 
+type Delivery = Pick<ChatDelivery, 'showPreview' | 'commit' | 'clearPreview'>
+
 export class DictationSession implements Disposable {
   private readonly stateEmitter = new EventEmitter<DictationSnapshot>()
   private readonly helperSubscription: Disposable
   private preparation: AbortController | undefined
   private currentSessionId: string | undefined
+  private deliveryChain: Promise<void> = Promise.resolve()
   private snapshot: DictationSnapshot = { state: 'idle', partialText: '' }
 
   readonly onDidChangeState: Event<DictationSnapshot> = this.stateEmitter.event
 
   constructor(
     private readonly helper: SpeechEngine,
-    private readonly deliverTranscript: (transcript: string) => Promise<void>,
+    private readonly delivery: Delivery,
     private readonly output: LogOutputChannel,
   ) {
     this.helperSubscription = helper.onEvent(event => void this.handleHelperEvent(event))
@@ -105,17 +109,27 @@ export class DictationSession implements Disposable {
       case 'recording':
         this.update({ state: 'recording', partialText: '' })
         break
-      case 'partial':
-        this.update({ state: 'recording', partialText: event.text.trim() })
+      case 'partial': {
+        if (this.snapshot.state !== 'recording')
+          break
+        const text = event.text.trim()
+        this.update({ state: 'recording', partialText: text })
+        if (text) {
+          this.output.debug('dictation preview ready')
+          void this.enqueueDelivery(async () => this.delivery.showPreview(text))
+        }
         break
+      }
       case 'final':
         await this.deliver(event.text)
         break
       case 'cancelled':
+        await this.enqueueDelivery(async () => this.delivery.clearPreview())
         this.currentSessionId = undefined
         this.update({ state: 'idle', partialText: '' })
         break
       case 'error':
+        void this.enqueueDelivery(async () => this.delivery.clearPreview())
         this.currentSessionId = undefined
         this.update({ state: 'error', partialText: '', error: event.message })
         break
@@ -126,8 +140,12 @@ export class DictationSession implements Disposable {
     const transcript = text.trim()
     this.update({ state: 'delivering', partialText: transcript })
     try {
-      if (transcript)
-        await this.deliverTranscript(transcript)
+      await this.enqueueDelivery(async () => {
+        if (transcript)
+          await this.delivery.commit(transcript)
+        else
+          await this.delivery.clearPreview()
+      })
       this.currentSessionId = undefined
       this.update({ state: 'idle', partialText: '' })
     }
@@ -136,6 +154,12 @@ export class DictationSession implements Disposable {
       this.output.error(`Transcript delivery failed: ${message}`)
       this.update({ state: 'error', partialText: transcript, error: message })
     }
+  }
+
+  private async enqueueDelivery(operation: () => Promise<void>): Promise<void> {
+    const run = this.deliveryChain.then(operation, operation)
+    this.deliveryChain = run.then(() => undefined, () => undefined)
+    return run
   }
 
   private update(snapshot: DictationSnapshot): void {

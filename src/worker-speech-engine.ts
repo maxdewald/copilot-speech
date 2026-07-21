@@ -91,6 +91,8 @@ export class WorkerSpeechEngine implements SpeechEngine {
   private handleWorkerEvent(event: WorkerEvent): void {
     if (event.type === 'modelProgress')
       this.output.debug(`model: ${event.message}`)
+    else if (event.type === 'partial')
+      this.output.debug(`engine event: partial (${event.text.length} chars)`)
     else
       this.output.debug(`engine event: ${event.type}`)
     this.eventEmitter.fire(event)

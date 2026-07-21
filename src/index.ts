@@ -2,7 +2,7 @@ import type { ExtensionContext } from 'vscode'
 import { join } from 'node:path'
 import process from 'node:process'
 import { env, UIKind, window, workspace } from 'vscode'
-import { deliverToChat } from './chat-delivery'
+import { ChatDelivery } from './chat-delivery'
 import { registerCommands } from './commands'
 import { DictationSession } from './dictation-session'
 import { deleteDownloadedModel, ensureModelConsent, modelIsCached, registerModelProgressReporter } from './model-download'
@@ -36,7 +36,7 @@ export function activate(context: ExtensionContext): void {
     },
     output,
   )
-  const session = new DictationSession(engine, deliverToChat, output)
+  const session = new DictationSession(engine, new ChatDelivery(), output)
   const statusBar = createStatusBar(session)
 
   context.subscriptions.push(
