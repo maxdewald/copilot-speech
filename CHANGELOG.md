@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/maxdewald/copilot-speech/compare/v0.2.0...v0.3.0) (2026-07-21)
+
+
+### Features
+
+* add live chat preview and silence auto-stop ([21da026](https://github.com/maxdewald/copilot-speech/commit/21da0265ac74920c35170cd7ef4bac8230c05788))
+* add model download management and improve chat delivery ([cc2875b](https://github.com/maxdewald/copilot-speech/commit/cc2875b914df7a6b1062fb1f251ab82fcc53306e))
+
+
+### Refactoring
+
+* move inference to Node worker using Cohere Transcribe ([40ccc81](https://github.com/maxdewald/copilot-speech/commit/40ccc816e4d5f76a691d5eac7e71ba0883f8afe7))
+
+
+### Documentation
+
+* add model benchmarks and marketplace badge to README ([3f29e4a](https://github.com/maxdewald/copilot-speech/commit/3f29e4ac5af936052d0f65e4f61e078cda58ccdd))
+
 ## [0.2.0](https://github.com/maxdewald/copilot-speech/compare/v0.1.0...v0.2.0) (2026-07-19)
 
 
