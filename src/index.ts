@@ -27,9 +27,9 @@ export function activate(context: ExtensionContext): void {
   const cacheDir = join(context.globalStorageUri.fsPath, 'models')
   const engine = new WorkerSpeechEngine(
     {
-      workerPath: context.asAbsolutePath(join('dist', 'extension', 'transcription-worker.cjs')),
+      workerPath: context.asAbsolutePath('dist/extension/transcription-worker.cjs'),
       helperPath: resolveHelperPath(),
-      vadModelPath: context.asAbsolutePath(join('node_modules', '@ricky0123', 'vad-web', 'dist', 'silero_vad_legacy.onnx')),
+      vadModelPath: context.asAbsolutePath('dist/extension/silero_vad_legacy.onnx'),
       modelId: MODEL_ID,
       dtype: MODEL_DTYPE,
       cacheDir,

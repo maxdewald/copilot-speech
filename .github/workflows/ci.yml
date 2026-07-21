@@ -72,11 +72,13 @@ jobs:
       - name: Build and test native helper
         run: pnpm native:configure && pnpm native:build && pnpm native:test
 
-      - name: Prepare artifacts
-        run: pnpm artifacts:prepare
+      - name: Build extension
+        run: pnpm build
 
       - name: Package extension
-        run: pnpm exec vsce package --no-dependencies --target ${{ matrix.target }} --ignore-other-target-folders --out dist/artifacts/copilot-speech-${{ matrix.target }}.vsix
+        env:
+          TARGET: ${{ matrix.target }}
+        run: pnpm package:vsix
 
       - name: Upload package
         uses: actions/upload-artifact@v6

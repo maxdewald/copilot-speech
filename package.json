@@ -36,7 +36,7 @@
   "files": [
     "LICENSE.md",
     "README.md",
-    "dist/extension/*",
+    "dist/extension/**/*",
     "dist/native/runtime/**/*",
     "images/*"
   ],
@@ -169,15 +169,16 @@
     "native:build": "node --experimental-strip-types scripts/native.ts build",
     "native:test": "node --experimental-strip-types scripts/native.ts test",
     "vscode:prepublish": "pnpm build",
-    "artifacts:prepare": "node -e \"require('node:fs').mkdirSync('dist/artifacts', { recursive: true })\"",
-    "ext:package": "pnpm native:configure && pnpm native:build && pnpm artifacts:prepare && vsce package --target linux-x64 --ignore-other-target-folders --out dist/artifacts/copilot-speech-linux-x64.vsix"
+    "ext:package": "pnpm native:configure && pnpm native:build && pnpm build && pnpm package:vsix",
+    "package:vsix": "mkdir -p dist/artifacts && vsce package --no-dependencies --target ${TARGET:-linux-x64} --ignore-other-target-folders --out dist/artifacts/copilot-speech-${TARGET:-linux-x64}.vsix"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0",
-    "@ricky0123/vad-web": "^0.0.30"
+    "onnxruntime-node": "1.24.3"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",
+    "@huggingface/transformers": "^4.2.0",
+    "@ricky0123/vad-web": "^0.0.30",
     "@types/node": "^24.13.3",
     "@types/vscode": "^1.125.0",
     "@vscode/vsce": "^3.9.2",
