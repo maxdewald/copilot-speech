@@ -4,10 +4,10 @@
   "displayName": "Copilot Speech",
   "type": "module",
   "version": "0.3.1",
-  "packageManager": "pnpm@11.13.0",
+  "packageManager": "pnpm@11.15.1",
   "volta": {
     "node": "24.18.0",
-    "pnpm": "11.13.0"
+    "pnpm": "11.15.1"
   },
   "description": "Private local speech-to-text for GitHub Copilot Chat.",
   "author": "Maximilian Dewald <maximilian@dewald.one>",
@@ -173,7 +173,7 @@
     "package:vsix": "mkdir -p dist/artifacts && vsce package --no-dependencies --target ${TARGET:-linux-x64} --ignore-other-target-folders --out dist/artifacts/copilot-speech-${TARGET:-linux-x64}.vsix"
   },
   "dependencies": {
-    "onnxruntime-node": "1.24.3"
+    "onnxruntime-node": "1.27.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",
