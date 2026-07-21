@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/maxdewald/copilot-speech/compare/v0.3.2...v0.4.0) (2026-07-21)
+
+
+### Features
+
+* unload speech model after idle timeout ([bb96f4b](https://github.com/maxdewald/copilot-speech/commit/bb96f4b9aebbb2bc4b9f19829775b29ff134fd01))
+
 ## [0.3.2](https://github.com/maxdewald/copilot-speech/compare/v0.3.1...v0.3.2) (2026-07-21)
 
 
