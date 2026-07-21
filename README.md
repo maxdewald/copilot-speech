@@ -5,12 +5,12 @@
 <h1>Copilot Speech</h1>
 
 <p>
-  <b>Private, local voice dictation for GitHub Copilot Chat in desktop VS Code</b><br/>
-  <sub>Speak naturally. Review the prompt. Send when you are ready.</sub>
+  <b>Private, local voice dictation for GitHub Copilot Chat</b><br/>
+  <sub>Built because VS Code Speech was not reliable enough. Speak. Review. Send when ready.</sub>
 </p>
 
 <p>
-  <img src="https://img.shields.io/badge/status-implementation%20draft-D97706" alt="Implementation draft" />
+  <a href="https://marketplace.visualstudio.com/items?itemName=maxdewald.copilot-speech"><img src="https://img.shields.io/visual-studio-marketplace/v/maxdewald.copilot-speech?label=VS%20Marketplace&logo=visualstudiocode&logoColor=white&color=007ACC" alt="VS Marketplace" /></a>
   <img src="https://img.shields.io/badge/VS%20Code-1.124%2B-007ACC?logo=visualstudiocode&logoColor=white" alt="VS Code 1.124+" />
   <img src="https://img.shields.io/badge/transcription-local-168477" alt="Local transcription" />
   <a href="./LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-3DA639?logo=opensourceinitiative&logoColor=white" alt="MIT License" /></a>
@@ -18,14 +18,29 @@
 
 </div>
 
-Copilot Speech captures microphone audio in an isolated native helper (miniaudio), strips non-speech with Silero VAD, transcribes locally with [Cohere Transcribe](https://huggingface.co/CohereLabs/cohere-transcribe-03-2026), and prefills Copilot Chat for review. No cloud transcription service, no automatic submission, and no transcript history.
-
 ## Highlights
 
-- **Powered by Cohere Transcribe** - a 2B-parameter multilingual speech model (Apache-2.0) runs entirely on your machine through [Transformers.js](https://huggingface.co/docs/transformers.js) and ONNX Runtime. Nothing is ever sent to the cloud. The model (~1.5 GB, `q4f16`) is downloaded and cached the first time you dictate.
-- **Your voice stays private** - audio never leaves your device, stays out of the extension host, and no transcript history is kept.
-- **Silero voice activity detection** - neural VAD removes silence and background noise before transcription so the model sees clean speech.
-- **Speak your language** - choose from 14 languages including English, German, French, Spanish, Italian, Portuguese, Dutch, Polish, Greek, Arabic, Japanese, Chinese, Vietnamese, or Korean. Cohere Transcribe does not auto-detect language, so pick the one you will speak.
+- **Powered by Cohere Transcribe** — a 2B-parameter multilingual speech model (Apache-2.0) runs entirely on your machine through [Transformers.js](https://huggingface.co/docs/transformers.js) and ONNX Runtime. Nothing is ever sent to the cloud. The model (~1.5 GB, `q4f16`) is downloaded and cached the first time you dictate.
+- **Strong accuracy** — **5.42%** average WER on the [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (vs **7.44%** for Whisper Large v3). See [Model benchmarks](#model-benchmarks).
+- **Your voice stays private** — audio never leaves your device, stays out of the extension host, and no transcript history is kept.
+- **Silero voice activity detection** — neural VAD removes silence and background noise before transcription so the model sees clean speech.
+- **Speak your language** — choose from 14 languages including English, German, French, Spanish, Italian, Portuguese, Dutch, Polish, Greek, Arabic, Japanese, Chinese, Vietnamese, or Korean. Cohere Transcribe does not auto-detect language, so pick the one you will speak.
+
+## Model benchmarks
+
+Cohere Transcribe leads English ASR accuracy on the [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (lower WER is better):
+
+| Model | Avg | AMI | Earnings22 | Gigaspeech | LS clean | LS other | SPGISpeech | TED-LIUM | VoxPopuli |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Cohere Transcribe** | **5.42** | **8.13** | 10.86 | 9.34 | **1.25** | **2.37** | 3.08 | 2.49 | 5.87 |
+| Zoom Scribe v1 | 5.47 | 10.03 | 9.53 | 9.61 | 1.63 | 2.81 | **1.59** | 3.22 | **5.37** |
+| IBM Granite 4.0 1B Speech | 5.52 | 8.44 | **8.48** | 10.14 | 1.42 | 2.85 | 3.89 | 3.10 | 5.84 |
+| NVIDIA Canary Qwen 2.5B | 5.63 | 10.19 | 10.45 | 9.43 | 1.61 | 3.10 | 1.90 | 2.71 | 5.66 |
+| Qwen3-ASR-1.7B | 5.76 | 10.56 | 10.25 | **8.74** | 1.63 | 3.40 | 2.84 | **2.28** | 6.35 |
+| ElevenLabs Scribe v2 | 5.83 | 11.86 | 9.43 | 9.11 | 1.54 | 2.83 | 2.68 | 2.37 | 6.80 |
+| OpenAI Whisper Large v3 | 7.44 | 15.95 | 11.29 | 10.02 | 2.01 | 3.91 | 2.94 | 3.86 | 9.54 |
+
+Source: [Cohere](https://cohere.com/blog/transcribe) (2026-03-26). This extension runs the local ONNX build, not a cloud API.
 
 ## Quickstart
 
