@@ -22,6 +22,14 @@ I built Copilot Speech because [VS Code Speech](https://marketplace.visualstudio
 
 Copilot Speech captures microphone audio in an isolated native helper (miniaudio), strips non-speech with Silero VAD, transcribes locally with [Cohere Transcribe](https://huggingface.co/CohereLabs/cohere-transcribe-03-2026), and prefills Copilot Chat for review. No cloud transcription service, no automatic submission, and no transcript history.
 
+## Demo
+
+<div align="center">
+
+<img src="images/demo.webp" width="900" alt="Copilot Speech dictation demo in VS Code" />
+
+</div>
+
 ## Highlights
 
 - **Powered by Cohere Transcribe** — a 2B-parameter multilingual speech model (Apache-2.0) runs entirely on your machine through [Transformers.js](https://huggingface.co/docs/transformers.js) and ONNX Runtime. Nothing is ever sent to the cloud. The model (~1.5 GB, `q4f16`) is downloaded and cached the first time you dictate.
