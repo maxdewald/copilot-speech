@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises'
 
 const SAMPLE_RATE = 16000
 
-/** Decode a base64 string into interleaved little-endian Int16 PCM as Float32. */
 export function decodePcm16(base64: string): Float32Array {
   const bytes = nodeBuffer.from(base64, 'base64')
   const count = Math.floor(bytes.length / 2)
@@ -16,11 +15,6 @@ export function decodePcm16(base64: string): Float32Array {
   return out
 }
 
-/**
- * Silero VAD wrapper used by the transcription worker. Runs non-realtime over a
- * finished capture buffer and returns only the speech-bearing samples, which
- * improves ASR quality versus energy thresholding.
- */
 export class SileroVad {
   private constructor(private readonly vad: NonRealTimeVAD) {}
 
@@ -36,10 +30,6 @@ export class SileroVad {
     return new SileroVad(vad)
   }
 
-  /**
-   * Extract speech segments from a mono Float32 buffer and concatenate them.
-   * Returns an empty buffer when no speech is detected.
-   */
   async extractSpeech(audio: Float32Array, sampleRate = SAMPLE_RATE): Promise<Float32Array> {
     if (audio.length === 0)
       return new Float32Array(0)

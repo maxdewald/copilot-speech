@@ -1,9 +1,3 @@
-// Capture-only native helper. Owns the microphone and streams raw PCM to the
-// extension host over a bounded NDJSON stdio protocol. All voice activity
-// detection and speech recognition happen in the Node worker; this process
-// deliberately contains no ML code so that a crash cannot take down VS Code and
-// so that the runtime has no ONNX or model dependencies.
-
 #include <nlohmann/json.hpp>
 
 #ifdef _WIN32
@@ -36,7 +30,7 @@ using Json = nlohmann::json;
 constexpr int kProtocolVersion = 3;
 constexpr int kSampleRate = 16000;
 constexpr ma_uint32 kMaxQueuedFrames = kSampleRate * 5;
-constexpr ma_uint32 kReadFrames = 1600;  // ~100 ms at 16 kHz
+constexpr ma_uint32 kReadFrames = 1600;
 
 enum class SessionRequest { none, stop, cancel };
 
@@ -94,8 +88,6 @@ std::string required_string(const Json& command, const char* key) {
   return command.at(key).get<std::string>();
 }
 
-// Convert float samples in [-1, 1] to interleaved little-endian Int16 PCM and
-// emit them as a base64-encoded `pcm` event.
 void emit_pcm(const std::string& session_id, const float* samples,
               size_t frame_count) {
   if (frame_count == 0) {
@@ -396,8 +388,6 @@ class Helper {
       device_initialized = false;
       clear_capture(capture);
 
-      // Capture has ended and all PCM has been flushed. Cancellation vs.
-      // finalization is decided by the worker, which knows what it requested.
       emit({{"type", "stopped"}, {"sessionId", session_id}});
     } catch (const std::exception& error) {
       if (device_started) {
@@ -458,7 +448,7 @@ class Helper {
   }
 };
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   if (argc == 2 && std::string(argv[1]) == "--version") {

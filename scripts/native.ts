@@ -10,9 +10,6 @@ const buildDirectory = `dist/native/build/${target}`
 
 function main(): void {
   if (action === 'configure') {
-    // The capture-only helper depends only on header-only libraries fetched by
-    // CMake (nlohmann/json + miniaudio). There is no ONNX runtime or speech
-    // model to download, so configure is a plain CMake invocation.
     run('cmake', [
       '-S',
       'src/native',

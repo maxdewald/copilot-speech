@@ -28,6 +28,7 @@ export function createStatusBar(session: DictationSession): StatusBarItem {
         item.text = '$(record) Listening'
         item.tooltip = 'Stop dictation and finish transcription in Copilot Chat'
         item.command = 'copilotSpeech.stopDictation'
+        item.backgroundColor = new ThemeColor('statusBarItem.errorBackground')
         break
       case 'stopping':
       case 'delivering':

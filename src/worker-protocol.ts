@@ -1,18 +1,8 @@
-// Messages exchanged between the extension host (main thread) and the
-// transcription worker thread. The worker owns the native capture helper,
-// Silero VAD, and Cohere Transcribe inference; the main thread only sends
-// control commands and renders the events below.
-
 export interface WorkerData {
-  /** Absolute path to the native capture helper executable. */
   helperPath: string
-  /** Absolute path to the Silero VAD ONNX model shipped with `@ricky0123/vad-web`. */
   vadModelPath: string
-  /** Hugging Face model id for the ASR pipeline. */
   modelId: string
-  /** Quantization dtype passed to the pipeline (e.g. `q4f16`). */
   dtype: string
-  /** Directory Transformers.js should use to cache model files. */
   cacheDir: string
 }
 

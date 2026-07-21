@@ -3,23 +3,49 @@ import type { Interface } from 'node:readline'
 import type { HelperCommand, HelperEvent } from './helper-protocol'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
+import { readdirSync, rmSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import process from 'node:process'
 import { createInterface } from 'node:readline'
 import { isMainThread, parentPort, workerData } from 'node:worker_threads'
 import { parseHelperEvent, PROTOCOL_VERSION } from './helper-protocol'
 import { decodePcm16, SileroVad } from './silero-vad'
 
-// Messages between the extension host and this worker thread.
+function cleanStalePartialDownloads(dir: string): void {
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  }
+  catch {
+    return
+  }
+  for (const name of entries) {
+    const full = join(dir, name)
+    let stat: ReturnType<typeof statSync>
+    try {
+      stat = statSync(full)
+    }
+    catch {
+      continue
+    }
+    if (stat.isDirectory()) {
+      cleanStalePartialDownloads(full)
+    }
+    else if (/\.tmp\.[^/]+$/.test(name)) {
+      try {
+        rmSync(full, { force: true })
+      }
+      catch {
+      }
+    }
+  }
+}
+
 export interface WorkerData {
-  /** Absolute path to the native capture helper executable. */
   helperPath: string
-  /** Absolute path to the Silero VAD ONNX model shipped with `@ricky0123/vad-web`. */
   vadModelPath: string
-  /** Hugging Face model id for the ASR pipeline. */
   modelId: string
-  /** Quantization dtype passed to the pipeline (e.g. `q4f16`). */
   dtype: string
-  /** Directory Transformers.js should use to cache model files. */
   cacheDir: string
 }
 
@@ -29,7 +55,7 @@ export type WorkerCommand
     | { type: 'cancel', sessionId: string }
 
 export type WorkerEvent
-  = | { type: 'modelProgress', message: string }
+  = | { type: 'modelProgress', message: string, file?: string, loaded?: number, total?: number }
     | { type: 'recording', sessionId: string }
     | { type: 'partial', sessionId: string, text: string }
     | { type: 'final', sessionId: string, text: string }
@@ -55,10 +81,6 @@ class TranscriptionSession {
       this.buffer.push(samples[i] ?? 0)
   }
 
-  /**
-   * Capture has ended. Strip non-speech with Silero VAD, then transcribe the
-   * remaining audio once for the authoritative final transcript.
-   */
   async finalize(): Promise<void> {
     const audio = Float32Array.from(this.buffer)
     if (audio.length === 0) {
@@ -144,11 +166,19 @@ class Worker {
     this.emit({ type: 'modelProgress', message: 'Loading speech model…' })
     const { pipeline, env } = await import('@huggingface/transformers')
     env.cacheDir = this.data.cacheDir
+    cleanStalePartialDownloads(this.data.cacheDir)
     const asr = await pipeline('automatic-speech-recognition', this.data.modelId, {
       dtype: this.data.dtype as 'q4f16',
-      progress_callback: (progress: { status?: string, file?: string, progress?: number }) => {
-        if (progress.status === 'progress' && progress.file !== undefined && progress.file !== '')
-          this.emit({ type: 'modelProgress', message: `${progress.file}: ${Math.floor(progress.progress ?? 0)}%` })
+      progress_callback: (progress: { status?: string, file?: string, progress?: number, loaded?: number, total?: number }) => {
+        if (progress.status === 'progress' && progress.file !== undefined && progress.file !== '') {
+          this.emit({
+            type: 'modelProgress',
+            message: `${progress.file}: ${Math.floor(progress.progress ?? 0)}%`,
+            file: progress.file,
+            ...(progress.loaded === undefined ? {} : { loaded: progress.loaded }),
+            ...(progress.total === undefined ? {} : { total: progress.total }),
+          })
+        }
       },
     })
     this.transcriber = async (audio, language) => {

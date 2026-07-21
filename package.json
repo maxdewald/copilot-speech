@@ -79,6 +79,11 @@
         "command": "copilotSpeech.showLogs",
         "title": "Show Logs",
         "category": "Copilot Speech"
+      },
+      {
+        "command": "copilotSpeech.deleteModel",
+        "title": "Delete Downloaded Model",
+        "category": "Copilot Speech"
       }
     ],
     "keybindings": [

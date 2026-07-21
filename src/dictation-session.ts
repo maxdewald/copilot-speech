@@ -21,9 +21,6 @@ export class DictationSession implements Disposable {
   private preparation: AbortController | undefined
   private currentSessionId: string | undefined
   private snapshot: DictationSnapshot = { state: 'idle', partialText: '' }
-  private lastDeliveredPartial = ''
-  private deliveredPrefix = ''
-  private partialDelivery = Promise.resolve()
 
   readonly onDidChangeState: Event<DictationSnapshot> = this.stateEmitter.event
 
@@ -106,26 +103,12 @@ export class DictationSession implements Disposable {
         this.output.debug(`model progress: ${event.message}`)
         break
       case 'recording':
-        this.lastDeliveredPartial = ''
         this.update({ state: 'recording', partialText: '' })
         break
-      case 'partial': {
-        const transcript = event.text.trim()
-        this.update({ state: 'recording', partialText: transcript })
-        if (transcript && transcript !== this.lastDeliveredPartial) {
-          this.lastDeliveredPartial = transcript
-          const combined = this.combine(transcript)
-          this.partialDelivery = this.partialDelivery
-            .then(async () => this.deliverTranscript(combined))
-            .catch((error) => {
-              const message = error instanceof Error ? error.message : String(error)
-              this.output.error(`Partial transcript delivery failed: ${message}`)
-            })
-        }
+      case 'partial':
+        this.update({ state: 'recording', partialText: event.text.trim() })
         break
-      }
       case 'final':
-        await this.partialDelivery
         await this.deliver(event.text)
         break
       case 'cancelled':
@@ -144,8 +127,7 @@ export class DictationSession implements Disposable {
     this.update({ state: 'delivering', partialText: transcript })
     try {
       if (transcript)
-        await this.deliverTranscript(this.combine(transcript))
-      this.deliveredPrefix = this.combine(transcript)
+        await this.deliverTranscript(transcript)
       this.currentSessionId = undefined
       this.update({ state: 'idle', partialText: '' })
     }
@@ -154,10 +136,6 @@ export class DictationSession implements Disposable {
       this.output.error(`Transcript delivery failed: ${message}`)
       this.update({ state: 'error', partialText: transcript, error: message })
     }
-  }
-
-  private combine(transcript: string): string {
-    return this.deliveredPrefix ? `${this.deliveredPrefix} ${transcript}` : transcript
   }
 
   private update(snapshot: DictationSnapshot): void {

@@ -5,6 +5,7 @@ import { env, UIKind, window, workspace } from 'vscode'
 import { deliverToChat } from './chat-delivery'
 import { registerCommands } from './commands'
 import { DictationSession } from './dictation-session'
+import { deleteDownloadedModel, ensureModelConsent, modelIsCached, registerModelProgressReporter } from './model-download'
 import { createStatusBar } from './status-bar'
 import { WorkerSpeechEngine } from './worker-speech-engine'
 
@@ -23,6 +24,7 @@ export function activate(context: ExtensionContext): void {
     return context.asAbsolutePath(`dist/native/runtime/${process.platform}-${process.arch}/${executable}`)
   }
 
+  const cacheDir = join(context.globalStorageUri.fsPath, 'models')
   const engine = new WorkerSpeechEngine(
     {
       workerPath: context.asAbsolutePath(join('dist', 'extension', 'transcription-worker.cjs')),
@@ -30,7 +32,7 @@ export function activate(context: ExtensionContext): void {
       vadModelPath: context.asAbsolutePath(join('node_modules', '@ricky0123', 'vad-web', 'dist', 'silero_vad_legacy.onnx')),
       modelId: MODEL_ID,
       dtype: MODEL_DTYPE,
-      cacheDir: join(context.globalStorageUri.fsPath, 'models'),
+      cacheDir,
     },
     output,
   )
@@ -42,7 +44,13 @@ export function activate(context: ExtensionContext): void {
     engine,
     session,
     statusBar,
-    ...registerCommands(session, output),
+    registerModelProgressReporter(engine, output, () => modelIsCached(cacheDir, MODEL_ID, MODEL_DTYPE)),
+    ...registerCommands(
+      session,
+      output,
+      async () => ensureModelConsent(context, cacheDir, MODEL_ID, MODEL_DTYPE),
+      () => deleteDownloadedModel(context, cacheDir, MODEL_ID),
+    ),
   )
 
   statusBar.show()

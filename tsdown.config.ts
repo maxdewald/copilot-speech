@@ -1,7 +1,5 @@
 import { defineConfig } from 'tsdown'
 
-// ML packages ship native binaries, ONNX models, and wasm assets that cannot be
-// bundled into a single CJS file, so they stay external and ship in node_modules.
 const external = [
   'vscode',
   '@huggingface/transformers',

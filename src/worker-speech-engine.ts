@@ -26,13 +26,6 @@ export interface WorkerSpeechEngineConfig {
   cacheDir: string
 }
 
-/**
- * Runs the transcription worker (miniaudio capture helper + Silero VAD + Cohere
- * Transcribe) in a Node worker thread and adapts its messages to the
- * {@link SpeechEngine} interface consumed by the dictation session. Keeping the
- * worker off the extension-host thread means audio never touches the main
- * thread and a worker crash cannot take down VS Code.
- */
 export class WorkerSpeechEngine implements SpeechEngine {
   private readonly eventEmitter = new EventEmitter<SpeechEvent>()
   private worker: Worker | undefined

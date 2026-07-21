@@ -50,7 +50,7 @@ describe('dictationSession', () => {
     await vi.waitFor(() => expect(session.state.state).toBe('idle'))
   })
 
-  it('appends a new recording to the previous transcript', async () => {
+  it('delivers only the latest recording without prior transcript', async () => {
     const helper = new FakeHelper()
     const deliver = vi.fn(async () => {})
     const session = new DictationSession(helper, deliver, output)
@@ -58,16 +58,18 @@ describe('dictationSession', () => {
     await session.start(async () => model)
     session.stop()
     await vi.waitFor(() => expect(session.state.state).toBe('idle'))
+    expect(deliver).toHaveBeenLastCalledWith('Hello from speech')
 
     await session.start(async () => model)
     const sessionId = helper.startOptions!.sessionId
     helper.fire({ type: 'final', sessionId, text: 'and more speech' })
 
-    await vi.waitFor(() => expect(deliver).toHaveBeenLastCalledWith('Hello from speech and more speech'))
+    await vi.waitFor(() => expect(deliver).toHaveBeenLastCalledWith('and more speech'))
+    expect(deliver).toHaveBeenCalledTimes(2)
     expect(session.state.state).toBe('idle')
   })
 
-  it('updates Chat with partial transcripts while recording', async () => {
+  it('tracks partial transcripts without delivering them', async () => {
     const helper = new FakeHelper()
     const deliver = vi.fn(async () => {})
     const session = new DictationSession(helper, deliver, output)
@@ -77,9 +79,8 @@ describe('dictationSession', () => {
     helper.fire({ type: 'partial', sessionId, text: 'Hello' })
     helper.fire({ type: 'partial', sessionId, text: 'Hello from speech' })
 
-    await vi.waitFor(() => expect(deliver).toHaveBeenNthCalledWith(2, 'Hello from speech'))
-    expect(deliver).toHaveBeenNthCalledWith(1, 'Hello')
     expect(session.state).toEqual({ state: 'recording', partialText: 'Hello from speech' })
+    expect(deliver).not.toHaveBeenCalled()
   })
 
   it('discards a cancelled session', async () => {

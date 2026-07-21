@@ -11,8 +11,6 @@ endif()
 
 include(FetchContent)
 
-# The helper is capture-only. Its only dependencies are two header-only
-# libraries fetched by CMake; there is no ONNX runtime or speech model to link.
 FetchContent_Declare(
   nlohmann_json
   URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
@@ -22,7 +20,6 @@ set(JSON_BuildTests OFF CACHE INTERNAL "")
 set(JSON_Install OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(nlohmann_json)
 
-# Single-header download keeps the pin small (full tag archive is multi-MB source).
 FetchContent_Declare(
   miniaudio
   URL https://raw.githubusercontent.com/mackron/miniaudio/0.11.25/miniaudio.h

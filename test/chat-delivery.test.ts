@@ -1,19 +1,56 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { deliverToChat } from '../src/chat-delivery'
-import { commands, env, resetVSCodeMock, window } from './support/vscode'
+import { commands, env, resetVSCodeMock, setActiveTextEditorContent, window } from './support/vscode'
 
 describe('chatTranscriptDelivery', () => {
   beforeEach(resetVSCodeMock)
 
-  it('prefills Chat without submitting', async () => {
+  it('appends the transcript at the end of Chat without wiping existing text', async () => {
+    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
+    setActiveTextEditorContent('Review this')
+
+    await deliverToChat('function')
+
+    expect(commands.executeCommand).toHaveBeenNthCalledWith(1, 'workbench.action.chat.open')
+    expect(commands.executeCommand).toHaveBeenNthCalledWith(2, 'workbench.action.chat.focusInput')
+    expect(commands.executeCommand).toHaveBeenNthCalledWith(3, 'cursorBottom')
+    expect(commands.executeCommand).toHaveBeenNthCalledWith(4, 'type', { text: ' function' })
+    expect(env.clipboard.writeText).not.toHaveBeenCalled()
+  })
+
+  it('inserts without a leading space when the field is empty', async () => {
+    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
+    setActiveTextEditorContent('')
+
+    await deliverToChat('Hello')
+
+    expect(commands.executeCommand).toHaveBeenCalledWith('type', { text: 'Hello' })
+  })
+
+  it('skips the leading space when the field already ends with whitespace', async () => {
+    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
+    setActiveTextEditorContent('Hello ')
+
+    await deliverToChat('world')
+
+    expect(commands.executeCommand).toHaveBeenCalledWith('type', { text: 'world' })
+  })
+
+  it('prefers a leading space when the active editor cannot be read', async () => {
+    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
+    setActiveTextEditorContent(undefined)
+
+    await deliverToChat('world')
+
+    expect(commands.executeCommand).toHaveBeenCalledWith('type', { text: ' world' })
+  })
+
+  it('does nothing for empty transcripts', async () => {
     commands.available = ['workbench.action.chat.open']
 
-    await deliverToChat('Review this function')
+    await deliverToChat('   ')
 
-    expect(commands.executeCommand).toHaveBeenCalledWith('workbench.action.chat.open', {
-      query: 'Review this function',
-      isPartialQuery: true,
-    })
+    expect(commands.executeCommand).not.toHaveBeenCalled()
     expect(env.clipboard.writeText).not.toHaveBeenCalled()
   })
 
