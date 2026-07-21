@@ -2,6 +2,7 @@ import type { Disposable, Event, LogOutputChannel } from 'vscode'
 import type { WorkerCommand, WorkerData, WorkerEvent } from './transcription-worker'
 import { Worker } from 'node:worker_threads'
 import { EventEmitter } from 'vscode'
+import { formatDuration } from './format-duration'
 
 export interface StartSessionOptions {
   sessionId: string
@@ -24,12 +25,16 @@ export interface WorkerSpeechEngineConfig {
   modelId: string
   dtype: string
   cacheDir: string
+  /** Milliseconds after last session before unloading the model. `0` or negative disables. */
+  idleUnloadMs: number
 }
 
 export class WorkerSpeechEngine implements SpeechEngine {
   private readonly eventEmitter = new EventEmitter<SpeechEvent>()
   private worker: Worker | undefined
   private disposed = false
+  private activeSessionId: string | undefined
+  private idleUnloadTimer: ReturnType<typeof setTimeout> | undefined
 
   readonly onEvent: Event<SpeechEvent> = this.eventEmitter.event
 
@@ -39,10 +44,22 @@ export class WorkerSpeechEngine implements SpeechEngine {
   ) {}
 
   async startSession(options: StartSessionOptions): Promise<void> {
+    this.cancelIdleUnload()
+    const started = performance.now()
     this.ensureWorker()
+    this.activeSessionId = options.sessionId
     const recording = this.waitForSession('recording', options.sessionId, 120_000)
     this.post({ type: 'start', sessionId: options.sessionId, language: options.language })
-    await recording
+    try {
+      await recording
+      this.output.info(`Session ready in ${formatDuration(performance.now() - started)}`)
+    }
+    catch (error) {
+      if (this.activeSessionId === options.sessionId)
+        this.activeSessionId = undefined
+      this.scheduleIdleUnload()
+      throw error
+    }
   }
 
   stopSession(sessionId: string): void {
@@ -55,6 +72,8 @@ export class WorkerSpeechEngine implements SpeechEngine {
 
   dispose(): void {
     this.disposed = true
+    this.cancelIdleUnload()
+    this.activeSessionId = undefined
     void this.worker?.terminate()
     this.worker = undefined
     this.eventEmitter.dispose()
@@ -66,6 +85,7 @@ export class WorkerSpeechEngine implements SpeechEngine {
     if (this.disposed)
       throw new Error('The speech engine has been disposed.')
 
+    const started = performance.now()
     this.output.info('Starting transcription worker.')
     const workerData: WorkerData = {
       helperPath: this.config.helperPath,
@@ -86,16 +106,62 @@ export class WorkerSpeechEngine implements SpeechEngine {
       if (!this.disposed && code !== 0)
         this.eventEmitter.fire({ type: 'error', code: 'worker_exit', message: `Transcription worker exited with code ${code}.` })
     })
+    this.output.info(`Worker started in ${formatDuration(performance.now() - started)}`)
   }
 
   private handleWorkerEvent(event: WorkerEvent): void {
-    if (event.type === 'modelProgress')
-      this.output.debug(`model: ${event.message}`)
-    else if (event.type === 'partial')
+    if (event.type === 'modelProgress') {
+      if (event.level === 'info')
+        this.output.info(event.message)
+      else
+        this.output.debug(`model: ${event.message}`)
+    }
+    else if (event.type === 'partial') {
       this.output.debug(`engine event: partial (${event.text.length} chars)`)
-    else
+    }
+    else {
       this.output.debug(`engine event: ${event.type}`)
+    }
+
+    if (event.type === 'final' || event.type === 'cancelled') {
+      if (event.sessionId === this.activeSessionId)
+        this.activeSessionId = undefined
+      this.scheduleIdleUnload()
+    }
+    else if (event.type === 'error') {
+      if (event.sessionId === undefined || event.sessionId === this.activeSessionId)
+        this.activeSessionId = undefined
+      this.scheduleIdleUnload()
+    }
+
     this.eventEmitter.fire(event)
+  }
+
+  private scheduleIdleUnload(): void {
+    this.cancelIdleUnload()
+    if (this.config.idleUnloadMs <= 0 || this.disposed || this.activeSessionId !== undefined || !this.worker)
+      return
+
+    this.idleUnloadTimer = setTimeout(() => {
+      this.idleUnloadTimer = undefined
+      if (this.disposed || this.activeSessionId !== undefined || !this.worker)
+        return
+      this.output.info('Idle timeout reached; releasing speech model.')
+      try {
+        this.post({ type: 'unloadModel' })
+      }
+      catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        this.output.debug(`Skipped model unload: ${message}`)
+      }
+    }, this.config.idleUnloadMs)
+  }
+
+  private cancelIdleUnload(): void {
+    if (this.idleUnloadTimer === undefined)
+      return
+    clearTimeout(this.idleUnloadTimer)
+    this.idleUnloadTimer = undefined
   }
 
   private post(command: WorkerCommand): void {

@@ -1,6 +1,7 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import type { Interface } from 'node:readline'
 import type { HelperCommand, HelperEvent } from './helper-protocol'
+import type { WorkerCommand, WorkerData, WorkerEvent } from './worker-protocol'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import { readdirSync, rmSync, statSync } from 'node:fs'
@@ -8,8 +9,11 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { createInterface } from 'node:readline'
 import { isMainThread, parentPort, workerData } from 'node:worker_threads'
+import { formatDuration } from './format-duration'
 import { parseHelperEvent, PROTOCOL_VERSION } from './helper-protocol'
 import { decodePcm16, openEndpointer, SileroEndpointer, SileroVad } from './silero-vad'
+
+export type { WorkerCommand, WorkerData, WorkerEvent } from './worker-protocol'
 
 const SAMPLE_RATE = 16000
 /** Minimum time between preview ASR starts. */
@@ -18,6 +22,14 @@ const PREVIEW_INTERVAL_MS = 1000
 export const SILENCE_AUTO_STOP_MS = 5000
 const MIN_SPEECH_SAMPLES = Math.floor(0.45 * SAMPLE_RATE)
 const MAX_PREVIEW_SAMPLES = 20 * SAMPLE_RATE
+
+interface DisposablePipeline {
+  dispose: () => Promise<void>
+  (audio: Float32Array, options: { language: string, max_new_tokens: number }): Promise<
+    | { text?: string }
+    | Array<{ text?: string }>
+  >
+}
 
 function cleanStalePartialDownloads(dir: string): void {
   let entries: string[]
@@ -48,27 +60,6 @@ function cleanStalePartialDownloads(dir: string): void {
     }
   }
 }
-
-export interface WorkerData {
-  helperPath: string
-  vadModelPath: string
-  modelId: string
-  dtype: string
-  cacheDir: string
-}
-
-export type WorkerCommand
-  = | { type: 'start', sessionId: string, language: string }
-    | { type: 'stop', sessionId: string }
-    | { type: 'cancel', sessionId: string }
-
-export type WorkerEvent
-  = | { type: 'modelProgress', message: string, file?: string, loaded?: number, total?: number }
-    | { type: 'recording', sessionId: string }
-    | { type: 'partial', sessionId: string, text: string }
-    | { type: 'final', sessionId: string, text: string }
-    | { type: 'cancelled', sessionId: string }
-    | { type: 'error', code: string, message: string, sessionId?: string }
 
 type Transcribe = (audio: Float32Array, language: string) => Promise<string>
 
@@ -249,10 +240,12 @@ export class TranscriptionSession {
   }
 }
 
-class Worker {
+/** Internal worker runtime. Exported for unit tests. */
+export class TranscriptionWorker {
   private child: ChildProcessWithoutNullStreams | undefined
   private lines: Interface | undefined
   private session: TranscriptionSession | undefined
+  private asrPipeline: DisposablePipeline | undefined
   private transcriber: Transcribe | undefined
   private vad: SileroVad | undefined
   private endpointer: PreviewEndpointer | undefined
@@ -274,6 +267,9 @@ class Worker {
         break
       case 'cancel':
         this.cancel(command.sessionId)
+        break
+      case 'unloadModel':
+        await this.unloadModel()
         break
     }
   }
@@ -317,16 +313,20 @@ class Worker {
   }
 
   private async ensureTranscriber(): Promise<Transcribe> {
-    if (this.transcriber)
+    if (this.transcriber) {
+      this.emit({ type: 'modelProgress', message: 'Speech model already loaded', level: 'debug' })
       return this.transcriber
+    }
 
     const stub = process.env.COPILOT_SPEECH_STUB_TRANSCRIPT
     if (stub !== undefined) {
       this.transcriber = async () => stub
+      this.emit({ type: 'modelProgress', message: 'Speech model loaded (stub)', level: 'info' })
       return this.transcriber
     }
 
-    this.emit({ type: 'modelProgress', message: 'Loading speech model…' })
+    this.emit({ type: 'modelProgress', message: 'Loading speech model…', level: 'info' })
+    const started = performance.now()
     const { pipeline, env } = await import('@huggingface/transformers')
     env.cacheDir = this.data.cacheDir
     cleanStalePartialDownloads(this.data.cacheDir)
@@ -343,15 +343,49 @@ class Worker {
           })
         }
       },
-    })
+    }) as DisposablePipeline
+    this.asrPipeline = asr
     this.transcriber = async (audio, language) => {
-      const output = await asr(audio, { language, max_new_tokens: 512 }) as
-        | { text?: string }
-        | Array<{ text?: string }>
+      const output = await asr(audio, { language, max_new_tokens: 512 })
       const result = Array.isArray(output) ? output[0] : output
       return result?.text ?? ''
     }
+    this.emit({
+      type: 'modelProgress',
+      message: `Speech model loaded in ${formatDuration(performance.now() - started)}`,
+      level: 'info',
+    })
     return this.transcriber
+  }
+
+  private async unloadModel(): Promise<void> {
+    if (this.session) {
+      this.emit({ type: 'modelProgress', message: 'Skipped model unload while a session is active', level: 'debug' })
+      return
+    }
+    if (!this.transcriber && !this.asrPipeline) {
+      this.emit({ type: 'modelProgress', message: 'Speech model already unloaded', level: 'debug' })
+      return
+    }
+
+    this.emit({ type: 'modelProgress', message: 'Releasing speech model…', level: 'info' })
+    const started = performance.now()
+    const pipeline = this.asrPipeline
+    this.asrPipeline = undefined
+    this.transcriber = undefined
+    try {
+      if (pipeline)
+        await pipeline.dispose()
+    }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.emit({ type: 'modelProgress', message: `Speech model release warning: ${message}`, level: 'info' })
+    }
+    this.emit({
+      type: 'modelProgress',
+      message: `Speech model released in ${formatDuration(performance.now() - started)}`,
+      level: 'info',
+    })
   }
 
   private async ensureSpeechExtractor(): Promise<(audio: Float32Array) => Promise<Float32Array>> {
@@ -361,7 +395,13 @@ class Worker {
 
     if (!this.vad) {
       this.emit({ type: 'modelProgress', message: 'Loading voice activity model…' })
+      const started = performance.now()
       this.vad = await SileroVad.create(this.data.vadModelPath)
+      this.emit({
+        type: 'modelProgress',
+        message: `Voice activity model loaded in ${formatDuration(performance.now() - started)}`,
+        level: 'info',
+      })
     }
     return async audio => this.vad!.extractSpeech(audio)
   }
@@ -375,14 +415,21 @@ class Worker {
       return this.endpointer
     }
 
-    this.emit({ type: 'modelProgress', message: 'Loading voice activity model…' })
+    this.emit({ type: 'modelProgress', message: 'Loading voice activity endpointer…' })
+    const started = performance.now()
     this.endpointer = await SileroEndpointer.create(this.data.vadModelPath)
+    this.emit({
+      type: 'modelProgress',
+      message: `Voice activity endpointer loaded in ${formatDuration(performance.now() - started)}`,
+      level: 'info',
+    })
     return this.endpointer
   }
 
   private async ensureHelper(): Promise<void> {
     if (this.child && !this.child.killed)
       return
+    const started = performance.now()
     const child = spawn(this.data.helperPath, ['--stdio'], { stdio: 'pipe', windowsHide: true })
     this.child = child
     this.lines = createInterface({ input: child.stdout })
@@ -414,6 +461,11 @@ class Worker {
         resolve()
       }
       this.send({ type: 'hello', protocolVersion: PROTOCOL_VERSION })
+    })
+    this.emit({
+      type: 'modelProgress',
+      message: `Native helper ready in ${formatDuration(performance.now() - started)}`,
+      level: 'info',
     })
   }
 
@@ -487,12 +539,19 @@ class Worker {
     if (this.child && !this.child.killed)
       this.child.kill()
     this.lines?.close()
+    this.asrPipeline = undefined
+    this.transcriber = undefined
+  }
+
+  /** Test helper: whether an in-memory ASR path is currently loaded. */
+  hasModelLoaded(): boolean {
+    return this.transcriber !== undefined || this.asrPipeline !== undefined
   }
 }
 
 if (!isMainThread && parentPort) {
   const port = parentPort
-  const worker = new Worker(workerData as WorkerData, event => port.postMessage(event))
+  const worker = new TranscriptionWorker(workerData as WorkerData, event => port.postMessage(event))
   port.on('message', (command: WorkerCommand) => void worker.handle(command))
   port.on('close', () => worker.dispose())
 }

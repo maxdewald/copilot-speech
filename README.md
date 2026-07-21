@@ -99,6 +99,7 @@ The native helper only captures audio and streams raw PCM; it contains no ML cod
 | Setting | Default | Description |
 | --- | --- | --- |
 | `copilotSpeech.language` | `en` | Language you will speak (Cohere Transcribe does not auto-detect) |
+| `copilotSpeech.modelIdleMinutes` | `15` | Minutes after last dictation before releasing the speech model from memory (`0` keeps it loaded) |
 | `copilotSpeech.helperPath` | `""` | Development path to a native capture helper build |
 
 </details>

@@ -17,6 +17,7 @@ export interface MockTextEditor {
 }
 
 export const output = {
+  info: vi.fn(),
   debug: vi.fn(),
   error: vi.fn(),
 } as unknown as vscode.LogOutputChannel

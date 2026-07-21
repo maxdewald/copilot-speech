@@ -25,6 +25,10 @@ export function activate(context: ExtensionContext): void {
   }
 
   const cacheDir = join(context.globalStorageUri.fsPath, 'models')
+  const idleMinutes = workspace.getConfiguration('copilotSpeech').get('modelIdleMinutes', 15)
+  const idleUnloadMs = Number.isFinite(idleMinutes) && idleMinutes > 0
+    ? Math.round(idleMinutes * 60_000)
+    : 0
   const engine = new WorkerSpeechEngine(
     {
       workerPath: context.asAbsolutePath('dist/extension/transcription-worker.cjs'),
@@ -33,6 +37,7 @@ export function activate(context: ExtensionContext): void {
       modelId: MODEL_ID,
       dtype: MODEL_DTYPE,
       cacheDir,
+      idleUnloadMs,
     },
     output,
   )
