@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.2](https://github.com/maxdewald/copilot-speech/compare/v0.3.1...v0.3.2) (2026-07-21)
+
+
+### Bug Fixes
+
+* **deps:** update dependency onnxruntime-node to v1.27.0 ([3e7badf](https://github.com/maxdewald/copilot-speech/commit/3e7badf085eb830cc81486bc4839c0dd23c78412))
+* **deps:** update dependency onnxruntime-node to v1.27.0 ([ac95d48](https://github.com/maxdewald/copilot-speech/commit/ac95d482cfd932b5a42ee8691a8f382ad518506d))
+
+
+### Documentation
+
+* simplify model benchmarks table in README ([defd196](https://github.com/maxdewald/copilot-speech/commit/defd1963f220efef9790ad78be847768e4001d04))
+
+
+### Build System
+
+* bundle extension dependencies and simplify packaging ([d29e100](https://github.com/maxdewald/copilot-speech/commit/d29e1003b644112116e9bcf660ccd8bcd9f047b6))
+* copy onnxruntime-web WASM files to build output ([fecb0f6](https://github.com/maxdewald/copilot-speech/commit/fecb0f61edd18bc17b0e871f6400bd81f441457c))
+
 ## [0.3.1](https://github.com/maxdewald/copilot-speech/compare/v0.3.0...v0.3.1) (2026-07-21)
 
 
