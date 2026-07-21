@@ -78,7 +78,7 @@ jobs:
         run: pnpm package:vsix
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: copilot-speech-${{ matrix.target }}
           path: dist/artifacts/copilot-speech-${{ matrix.target }}.vsix
@@ -111,7 +111,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download package artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: copilot-speech-*
           merge-multiple: true
