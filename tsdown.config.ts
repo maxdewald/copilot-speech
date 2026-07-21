@@ -7,7 +7,15 @@ import { defineConfig } from 'tsdown'
 const require = createRequire(import.meta.url)
 const outDir = 'dist/extension'
 const external = ['vscode', 'onnxruntime-node']
-const silero = join(dirname(require.resolve('@ricky0123/vad-web/package.json')), 'dist/silero_vad_legacy.onnx')
+
+const vadDir = dirname(require.resolve('@ricky0123/vad-web/package.json'))
+const silero = join(vadDir, 'dist/silero_vad_legacy.onnx')
+// vad-web bundles onnxruntime-web, which dynamically imports these next to the worker chunk.
+const ortWebDist = dirname(createRequire(join(vadDir, 'dist/index.js')).resolve('onnxruntime-web'))
+const ortWasm = [
+  join(ortWebDist, 'ort-wasm-simd-threaded.mjs'),
+  join(ortWebDist, 'ort-wasm-simd-threaded.wasm'),
+]
 
 function rmExcept(dir: string, keep: string): void {
   for (const name of readdirSync(dir)) {
@@ -42,7 +50,7 @@ export default defineConfig({
   outDir,
   format: ['cjs'],
   dts: false,
-  copy: [{ from: silero }],
+  copy: [{ from: silero }, ...ortWasm.map(from => ({ from }))],
   deps: {
     neverBundle: external,
     alwaysBundle: id => !external.includes(id) && !id.startsWith('node:'),
