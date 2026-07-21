@@ -5,8 +5,8 @@
 <h1>Copilot Speech</h1>
 
 <p>
-  <b>Private, local voice dictation for GitHub Copilot Chat</b><br/>
-  <sub>Built because VS Code Speech was not reliable enough. Speak. Review. Send when ready.</sub>
+  <b>Private, local voice dictation for GitHub Copilot Chat in desktop VS Code</b><br/>
+  <sub>Speak naturally. Review the prompt. Send when you are ready.</sub>
 </p>
 
 <p>
@@ -17,6 +17,10 @@
 </p>
 
 </div>
+
+I built Copilot Speech because [VS Code Speech](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-speech) was not reliable enough for daily Copilot Chat dictation — flaky sessions, inconsistent quality, and cloud speech I did not want handling private work audio.
+
+Copilot Speech captures microphone audio in an isolated native helper (miniaudio), strips non-speech with Silero VAD, transcribes locally with [Cohere Transcribe](https://huggingface.co/CohereLabs/cohere-transcribe-03-2026), and prefills Copilot Chat for review. No cloud transcription service, no automatic submission, and no transcript history.
 
 ## Highlights
 
