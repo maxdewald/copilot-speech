@@ -3,7 +3,7 @@
   "name": "copilot-speech",
   "displayName": "Copilot Speech",
   "type": "module",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "packageManager": "pnpm@11.15.1",
   "volta": {
     "node": "24.18.0",
