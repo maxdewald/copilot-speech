@@ -32,19 +32,22 @@ Copilot Speech captures microphone audio in an isolated native helper (miniaudio
 
 ## Model benchmarks
 
-Cohere Transcribe leads English ASR accuracy on the [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (lower WER is better):
+**Word error rate (WER)** is the share of words a model gets wrong. Lower is better.
 
-| Model | Avg | AMI | Earnings22 | Gigaspeech | LS clean | LS other | SPGISpeech | TED-LIUM | VoxPopuli |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **Cohere Transcribe** | **5.42** | **8.13** | 10.86 | 9.34 | **1.25** | **2.37** | 3.08 | 2.49 | 5.87 |
-| Zoom Scribe v1 | 5.47 | 10.03 | 9.53 | 9.61 | 1.63 | 2.81 | **1.59** | 3.22 | **5.37** |
-| IBM Granite 4.0 1B Speech | 5.52 | 8.44 | **8.48** | 10.14 | 1.42 | 2.85 | 3.89 | 3.10 | 5.84 |
-| NVIDIA Canary Qwen 2.5B | 5.63 | 10.19 | 10.45 | 9.43 | 1.61 | 3.10 | 1.90 | 2.71 | 5.66 |
-| Qwen3-ASR-1.7B | 5.76 | 10.56 | 10.25 | **8.74** | 1.63 | 3.40 | 2.84 | **2.28** | 6.35 |
-| ElevenLabs Scribe v2 | 5.83 | 11.86 | 9.43 | 9.11 | 1.54 | 2.83 | 2.68 | 2.37 | 6.80 |
-| OpenAI Whisper Large v3 | 7.44 | 15.95 | 11.29 | 10.02 | 2.01 | 3.91 | 2.94 | 3.86 | 9.54 |
+On the [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) English suite, Cohere Transcribe currently ranks first. Compared with Whisper Large v3 — the familiar open baseline — that is **~27% fewer word errors** (5.42% vs 7.44%).
+
+| Rank | Model | Average WER |
+| ---: | --- | ---: |
+| 1 | **Cohere Transcribe** (this extension) | **5.42%** |
+| 2 | Zoom Scribe v1 | 5.47% |
+| 3 | IBM Granite 4.0 1B Speech | 5.52% |
+| 4 | NVIDIA Canary Qwen 2.5B | 5.63% |
+| 5 | Qwen3-ASR-1.7B | 5.76% |
+| 6 | ElevenLabs Scribe v2 | 5.83% |
+| … | OpenAI Whisper Large v3 | 7.44% |
 
 Source: [Cohere](https://cohere.com/blog/transcribe) (2026-03-26). This extension runs the local ONNX build, not a cloud API.
+
 
 ## Quickstart
 
