@@ -232,6 +232,41 @@ describe('transcriptionSession previews', () => {
     expect(events.filter(e => e.type === 'partial')).toHaveLength(2)
   })
 
+  it('uses the full recording for later previews', async () => {
+    const audioLengths: number[] = []
+    const endpointer = new FakeEndpointer()
+    endpointer.speaking = true
+    const { session } = createSession({
+      endpointer,
+      transcribe: async (audio) => {
+        audioLengths.push(audio.length)
+        return `partial-${audioLengths.length}`
+      },
+    })
+
+    session.addPcm(speechChunk(12))
+    await flush()
+    endpointer.speaking = false
+    session.addPcm(speechChunk(0.1, 0))
+    await flush()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flush()
+
+    endpointer.speaking = true
+    session.addPcm(speechChunk(12))
+    await flush()
+    endpointer.speaking = false
+    session.addPcm(speechChunk(0.1, 0))
+    await flush()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flush()
+
+    expect(audioLengths).toEqual([
+      Math.floor(12.1 * SAMPLE_RATE),
+      Math.floor(24.2 * SAMPLE_RATE),
+    ])
+  })
+
   it('does not emit partials after stopPreviews', async () => {
     const endpointer = new FakeEndpointer()
     endpointer.speaking = true

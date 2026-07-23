@@ -21,7 +21,6 @@ const PREVIEW_INTERVAL_MS = 1000
 /** Stop recording and finalize after this much continuous non-speech. */
 export const SILENCE_AUTO_STOP_MS = 5000
 const MIN_SPEECH_SAMPLES = Math.floor(0.45 * SAMPLE_RATE)
-const MAX_PREVIEW_SAMPLES = 20 * SAMPLE_RATE
 
 interface DisposablePipeline {
   dispose: () => Promise<void>
@@ -210,7 +209,7 @@ export class TranscriptionSession {
     this.previewInFlight = true
     this.lastPreviewStartedAt = Date.now()
     try {
-      const audio = Float32Array.from(this.buffer.slice(-MAX_PREVIEW_SAMPLES))
+      const audio = Float32Array.from(this.buffer)
       // Keep pending so a later silence chunk can retry once the buffer is long enough.
       if (audio.length < MIN_SPEECH_SAMPLES)
         return
