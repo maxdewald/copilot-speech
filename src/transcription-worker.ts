@@ -25,7 +25,11 @@ const MAX_PREVIEW_SAMPLES = 20 * SAMPLE_RATE
 
 interface DisposablePipeline {
   dispose: () => Promise<void>
-  (audio: Float32Array, options: { language: string, max_new_tokens: number }): Promise<
+  (audio: Float32Array, options: {
+    language: string
+    max_new_tokens: number
+    no_repeat_ngram_size: number
+  }): Promise<
     | { text?: string }
     | Array<{ text?: string }>
   >
@@ -62,6 +66,17 @@ function cleanStalePartialDownloads(dir: string): void {
 }
 
 type Transcribe = (audio: Float32Array, language: string) => Promise<string>
+
+export function generationOptions(audioSamples: number): {
+  max_new_tokens: number
+  no_repeat_ngram_size: number
+} {
+  const speechSeconds = audioSamples / SAMPLE_RATE
+  return {
+    max_new_tokens: Math.max(32, Math.min(256, Math.ceil(speechSeconds * 6))),
+    no_repeat_ngram_size: 6,
+  }
+}
 
 /** Duck-typed pause gate used by previews (SileroEndpointer or openEndpointer stub). */
 export interface PreviewEndpointer {
@@ -202,7 +217,10 @@ export class TranscriptionSession {
 
       // Consume the SpeechEnd trigger before ASR so long pauses cannot re-fire.
       this.previewPending = false
-      const text = (await this.transcribe(audio, this.language)).trim()
+      const speech = await this.extractSpeech(audio)
+      if (speech.length === 0)
+        return
+      const text = (await this.transcribe(speech, this.language)).trim()
       if (this.previewsClosed || !text || text === this.lastPartialText)
         return
 
@@ -346,7 +364,7 @@ export class TranscriptionWorker {
     }) as DisposablePipeline
     this.asrPipeline = asr
     this.transcriber = async (audio, language) => {
-      const output = await asr(audio, { language, max_new_tokens: 512 })
+      const output = await asr(audio, { language, ...generationOptions(audio.length) })
       const result = Array.isArray(output) ? output[0] : output
       return result?.text ?? ''
     }

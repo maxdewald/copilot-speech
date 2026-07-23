@@ -2,7 +2,7 @@ import type { PreviewEndpointer, WorkerEvent } from '../src/transcription-worker
 import { Buffer } from 'node:buffer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { openEndpointer } from '../src/silero-vad'
-import { SILENCE_AUTO_STOP_MS, TranscriptionSession } from '../src/transcription-worker'
+import { generationOptions, SILENCE_AUTO_STOP_MS, TranscriptionSession } from '../src/transcription-worker'
 
 const SAMPLE_RATE = 16000
 
@@ -40,6 +40,7 @@ class FakeEndpointer implements PreviewEndpointer {
 function createSession(opts: {
   endpointer?: PreviewEndpointer
   transcribe?: (audio: Float32Array, language: string) => Promise<string>
+  extractSpeech?: (audio: Float32Array) => Promise<Float32Array>
   requestStop?: () => void
 } = {}) {
   const events: WorkerEvent[] = []
@@ -48,7 +49,7 @@ function createSession(opts: {
     's1',
     'en',
     opts.transcribe ?? (async () => 'hello world'),
-    async audio => audio,
+    opts.extractSpeech ?? (async audio => audio),
     opts.endpointer ?? openEndpointer(),
     event => events.push(event),
     requestStop,
@@ -69,6 +70,14 @@ describe('openEndpointer', () => {
     expect(ep.speaking).toBe(false)
     ep.reset()
     expect(await ep.push(new Float32Array(100))).toEqual({ speaking: false, speechEnded: true })
+  })
+})
+
+describe('generationOptions', () => {
+  it('bounds decoding by speech duration and prevents long repeated n-grams', () => {
+    expect(generationOptions(0)).toEqual({ max_new_tokens: 32, no_repeat_ngram_size: 6 })
+    expect(generationOptions(20 * SAMPLE_RATE)).toEqual({ max_new_tokens: 120, no_repeat_ngram_size: 6 })
+    expect(generationOptions(60 * SAMPLE_RATE)).toEqual({ max_new_tokens: 256, no_repeat_ngram_size: 6 })
   })
 })
 
@@ -111,6 +120,51 @@ describe('transcriptionSession previews', () => {
     const partials = events.filter(e => e.type === 'partial')
     expect(partials).toHaveLength(1)
     expect(partials[0]).toMatchObject({ type: 'partial', sessionId: 's1', text: 'hello world' })
+  })
+
+  it('transcribes VAD-filtered speech for previews', async () => {
+    const endpointer = new FakeEndpointer()
+    endpointer.speaking = true
+    const speech = new Float32Array([0.1, 0.2, 0.3])
+    const extractSpeech = vi.fn(async () => speech)
+    const transcribe = vi.fn(async () => 'filtered preview')
+    const { session, events } = createSession({ endpointer, extractSpeech, transcribe })
+
+    session.addPcm(speechChunk(0.6))
+    await flush()
+    endpointer.speaking = false
+    session.addPcm(speechChunk(0.5, 0))
+    await flush()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flush()
+
+    expect(extractSpeech).toHaveBeenCalledTimes(1)
+    expect(transcribe).toHaveBeenCalledWith(speech, 'en')
+    expect(events.filter(e => e.type === 'partial')).toEqual([
+      { type: 'partial', sessionId: 's1', text: 'filtered preview' },
+    ])
+  })
+
+  it('skips preview transcription when VAD finds no speech', async () => {
+    const endpointer = new FakeEndpointer()
+    endpointer.speaking = true
+    const transcribe = vi.fn(async () => 'hallucinated preview')
+    const { session, events } = createSession({
+      endpointer,
+      extractSpeech: async () => new Float32Array(0),
+      transcribe,
+    })
+
+    session.addPcm(speechChunk(0.6))
+    await flush()
+    endpointer.speaking = false
+    session.addPcm(speechChunk(0.5, 0))
+    await flush()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flush()
+
+    expect(transcribe).not.toHaveBeenCalled()
+    expect(events.filter(e => e.type === 'partial')).toEqual([])
   })
 
   it('does not re-preview during continued silence even if ASR text drifts', async () => {
