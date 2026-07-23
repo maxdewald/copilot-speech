@@ -8,7 +8,6 @@ import { readdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import { createInterface } from 'node:readline'
-import { isMainThread, parentPort, workerData } from 'node:worker_threads'
 import { formatDuration } from './format-duration'
 import { parseHelperEvent, PROTOCOL_VERSION } from './helper-protocol'
 import { decodePcm16, openEndpointer, SileroEndpointer, SileroVad } from './silero-vad'
@@ -32,6 +31,21 @@ interface DisposablePipeline {
     | { text?: string }
     | Array<{ text?: string }>
   >
+}
+
+type PipelineFactory = (
+  task: 'automatic-speech-recognition',
+  modelId: string,
+  options: {
+    device: 'webgpu' | 'cpu'
+    dtype: 'q4f16'
+    progress_callback: (progress: { status?: string, file?: string, progress?: number, loaded?: number, total?: number }) => void
+  },
+) => Promise<DisposablePipeline>
+
+interface TransformersRuntime {
+  pipeline: PipelineFactory
+  env: { cacheDir: string | null }
 }
 
 function cleanStalePartialDownloads(dir: string): void {
@@ -272,6 +286,10 @@ export class TranscriptionWorker {
   constructor(
     private readonly data: WorkerData,
     private readonly emit: (event: WorkerEvent) => void,
+    private readonly loadTransformers: () => Promise<TransformersRuntime> = async () => {
+      const { pipeline, env } = await import('@huggingface/transformers')
+      return { pipeline, env }
+    },
   ) {}
 
   async handle(command: WorkerCommand): Promise<void> {
@@ -344,23 +362,68 @@ export class TranscriptionWorker {
 
     this.emit({ type: 'modelProgress', message: 'Loading speech model…', level: 'info' })
     const started = performance.now()
-    const { pipeline, env } = await import('@huggingface/transformers')
+    const { pipeline, env } = await this.loadTransformers()
     env.cacheDir = this.data.cacheDir
     cleanStalePartialDownloads(this.data.cacheDir)
-    const asr = await pipeline('automatic-speech-recognition', this.data.modelId, {
-      dtype: this.data.dtype as 'q4f16',
-      progress_callback: (progress: { status?: string, file?: string, progress?: number, loaded?: number, total?: number }) => {
-        if (progress.status === 'progress' && progress.file !== undefined && progress.file !== '') {
+    const progressCallback = (progress: { status?: string, file?: string, progress?: number, loaded?: number, total?: number }): void => {
+      if (progress.status === 'progress' && progress.file !== undefined && progress.file !== '') {
+        this.emit({
+          type: 'modelProgress',
+          message: `${progress.file}: ${Math.floor(progress.progress ?? 0)}%`,
+          file: progress.file,
+          ...(progress.loaded === undefined ? {} : { loaded: progress.loaded }),
+          ...(progress.total === undefined ? {} : { total: progress.total }),
+        })
+      }
+    }
+    let device: 'webgpu' | 'cpu'
+    let asr: DisposablePipeline
+    if (this.data.device === 'cpu') {
+      device = 'cpu'
+      this.emit({ type: 'modelProgress', message: 'Using CPU for speech recognition (forced).', level: 'info' })
+      asr = await pipeline('automatic-speech-recognition', this.data.modelId, {
+        device,
+        dtype: this.data.dtype as 'q4f16',
+        progress_callback: progressCallback,
+      })
+    }
+    else {
+      device = 'webgpu'
+      this.emit({
+        type: 'modelProgress',
+        message: `Trying WebGPU for speech recognition${this.data.device === 'gpu' ? ' (forced)' : ''}…`,
+        level: 'info',
+      })
+      try {
+        asr = await pipeline('automatic-speech-recognition', this.data.modelId, {
+          device,
+          dtype: this.data.dtype as 'q4f16',
+          progress_callback: progressCallback,
+        })
+      }
+      catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (this.data.device === 'gpu') {
           this.emit({
             type: 'modelProgress',
-            message: `${progress.file}: ${Math.floor(progress.progress ?? 0)}%`,
-            file: progress.file,
-            ...(progress.loaded === undefined ? {} : { loaded: progress.loaded }),
-            ...(progress.total === undefined ? {} : { total: progress.total }),
+            message: `WebGPU initialization failed: ${message}`,
+            level: 'warning',
           })
+          throw error
         }
-      },
-    }) as DisposablePipeline
+        this.emit({
+          type: 'modelProgress',
+          message: `WebGPU unavailable; falling back to CPU: ${message}`,
+          level: 'warning',
+        })
+        device = 'cpu'
+        asr = await pipeline('automatic-speech-recognition', this.data.modelId, {
+          device,
+          dtype: this.data.dtype as 'q4f16',
+          progress_callback: progressCallback,
+        })
+      }
+    }
     this.asrPipeline = asr
     this.transcriber = async (audio, language) => {
       const output = await asr(audio, { language, ...generationOptions(audio.length) })
@@ -369,7 +432,7 @@ export class TranscriptionWorker {
     }
     this.emit({
       type: 'modelProgress',
-      message: `Speech model loaded in ${formatDuration(performance.now() - started)}`,
+      message: `Speech model loaded on ${device === 'webgpu' ? 'WebGPU' : 'CPU'} in ${formatDuration(performance.now() - started)}`,
       level: 'info',
     })
     return this.transcriber
@@ -564,11 +627,4 @@ export class TranscriptionWorker {
   hasModelLoaded(): boolean {
     return this.transcriber !== undefined || this.asrPipeline !== undefined
   }
-}
-
-if (!isMainThread && parentPort) {
-  const port = parentPort
-  const worker = new TranscriptionWorker(workerData as WorkerData, event => port.postMessage(event))
-  port.on('message', (command: WorkerCommand) => void worker.handle(command))
-  port.on('close', () => worker.dispose())
 }

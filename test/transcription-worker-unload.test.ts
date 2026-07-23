@@ -8,6 +8,7 @@ const data: WorkerData = {
   modelId: 'test-model',
   dtype: 'q4f16',
   cacheDir: '/tmp',
+  device: 'auto',
 }
 
 interface WorkerInternals {

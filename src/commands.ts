@@ -31,7 +31,7 @@ export function registerCommands(
   session: DictationSession,
   output: LogOutputChannel,
   ensureConsent: () => Promise<boolean>,
-  deleteModel: () => boolean,
+  deleteModel: () => Promise<boolean>,
 ): Disposable[] {
   return [
     commands.registerCommand('copilotSpeech.startChatDictation', async () => {
@@ -62,6 +62,7 @@ export function registerCommands(
     commands.registerCommand('copilotSpeech.stopDictation', () => session.stop()),
     commands.registerCommand('copilotSpeech.cancelDictation', () => session.cancel()),
     commands.registerCommand('copilotSpeech.showLogs', () => output.show(true)),
+    commands.registerCommand('copilotSpeech.openSpeechSettings', () => commands.executeCommand('workbench.action.openSettings', '@ext:maxdewald.copilot-speech')),
     commands.registerCommand('copilotSpeech.deleteModel', async () => {
       const confirm = 'Delete Model'
       const choice = await window.showWarningMessage(
@@ -72,7 +73,7 @@ export function registerCommands(
       if (choice !== confirm)
         return
       try {
-        const existed = deleteModel()
+        const existed = await deleteModel()
         output.info(existed ? 'Deleted downloaded speech model.' : 'No downloaded speech model found.')
         void window.showInformationMessage(
           existed ? 'Copilot Speech model deleted. It will re-download on the next dictation.' : 'No downloaded Copilot Speech model was found.',

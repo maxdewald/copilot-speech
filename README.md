@@ -33,6 +33,7 @@ Copilot Speech captures microphone audio in an isolated native helper (miniaudio
 ## Highlights
 
 - **Powered by Cohere Transcribe** — a 2B-parameter multilingual speech model (Apache-2.0) runs entirely on your machine through [Transformers.js](https://huggingface.co/docs/transformers.js) and ONNX Runtime. Nothing is ever sent to the cloud. The model (~1.5 GB, `q4f16`) is downloaded and cached the first time you dictate.
+- **GPU accelerated when available** — Copilot Speech tries WebGPU first for faster transcription and automatically falls back to CPU, where it also runs well.
 - **Strong accuracy** — **5.42%** average WER on the [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) (vs **7.44%** for Whisper Large v3). See [Model benchmarks](#model-benchmarks).
 - **Your voice stays private** — audio never leaves your device, stays out of the extension host, and no transcript history is kept.
 - **Silero voice activity detection** — neural VAD removes silence and background noise before transcription so the model sees clean speech.
@@ -70,23 +71,23 @@ Optional: set `copilotSpeech.language` to the language you will speak (default E
 
 ## How it works
 
-Microphone capture lives in a small native helper (miniaudio) — the only place VS Code allows microphone access — while Silero VAD and speech recognition run in a Node worker thread, off the extension-host thread.
+Microphone capture lives in a small native helper (miniaudio) — the only place VS Code allows microphone access — while Silero VAD and speech recognition run in one local daemon shared by all VS Code windows.
 
 ```mermaid
 flowchart LR
-	Command[Command or keybinding] --> Session[Dictation session]
-	Session -->|control| Worker[Transcription worker]
-	Worker -->|bounded NDJSON| Helper[Native capture helper]
+	Window[VS Code window] --> Session[Dictation session]
+	Session -->|local IPC| Daemon[Shared speech daemon]
+	Daemon -->|bounded NDJSON| Helper[Native capture helper]
 	Helper --> Capture[miniaudio microphone]
-	Capture -->|PCM frames| Worker
-	Worker -->|rolling preview| CoherePreview[Cohere Transcribe ONNX]
+	Capture -->|PCM frames| Daemon
+	Daemon -->|rolling preview| CoherePreview[Cohere Transcribe ONNX]
 	CoherePreview -->|partial text| Session
 	Session -->|live chat preview| Chat[Copilot Chat]
-	Worker -->|on stop: full VAD + ASR| CohereFinal[Full clean transcript]
+	Daemon -->|on stop: full VAD + ASR| CohereFinal[Full clean transcript]
 	CohereFinal -->|final replaces preview| Chat
 ```
 
-The native helper only captures audio and streams raw PCM; it contains no ML code. While you speak, the worker periodically transcribes a recent speech window and shows approximate text in Copilot Chat for feedback. On stop, it runs Silero VAD over the full recording and re-transcribes once for a clean final result that replaces the preview. This keeps audio off the extension-host thread, prevents a helper crash from taking down VS Code, and avoids Electron/Node native-addon ABI coupling in the capture process.
+The native helper only captures audio and streams raw PCM; it contains no ML code. While you speak, the daemon periodically transcribes a recent speech window and shows approximate text in Copilot Chat for feedback. On stop, it runs Silero VAD over the full recording and re-transcribes once for a clean final result that replaces the preview. The daemon keeps one model loaded across VS Code windows and exits when the final window disconnects or after the configured inactivity timeout.
 
 ## Reference
 
@@ -107,7 +108,7 @@ The native helper only captures audio and streams raw PCM; it contains no ML cod
 | Setting | Default | Description |
 | --- | --- | --- |
 | `copilotSpeech.language` | `en` | Language you will speak (Cohere Transcribe does not auto-detect) |
-| `copilotSpeech.modelIdleMinutes` | `15` | Minutes after last dictation before releasing the speech model from memory (`0` keeps it loaded) |
+| `copilotSpeech.modelIdleMinutes` | `15` | Minutes of inactivity before stopping the shared speech runtime (`0` keeps it running while a VS Code window remains connected) |
 
 </details>
 

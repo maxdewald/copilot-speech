@@ -84,6 +84,11 @@
         "command": "copilotSpeech.deleteModel",
         "title": "Delete Downloaded Model",
         "category": "Copilot Speech"
+      },
+      {
+        "command": "copilotSpeech.openSpeechSettings",
+        "title": "Open Speech Settings",
+        "category": "Copilot Speech"
       }
     ],
     "keybindings": [
@@ -146,12 +151,33 @@
           "scope": "machine",
           "description": "Language spoken during dictation. Cohere Transcribe does not auto-detect language, so pick the one you will speak. The model is downloaded and cached on first use."
         },
+        "copilotSpeech.device": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "gpu",
+            "cpu"
+          ],
+          "enumItemLabels": [
+            "Auto",
+            "GPU (WebGPU)",
+            "CPU"
+          ],
+          "markdownEnumDescriptions": [
+            "Try WebGPU first and automatically fall back to CPU if GPU initialization fails.",
+            "Require WebGPU. Dictation fails if WebGPU cannot initialize.",
+            "Always run speech recognition on the CPU."
+          ],
+          "scope": "machine",
+          "description": "Hardware used for speech recognition."
+        },
         "copilotSpeech.modelIdleMinutes": {
           "type": "number",
           "default": 15,
           "minimum": 0,
           "scope": "machine",
-          "description": "Minutes after the last dictation before releasing the speech model from memory. Set to 0 to keep the model loaded for the whole VS Code session. The model is reloaded from the local cache on next dictation."
+          "description": "Minutes of inactivity before stopping the shared speech runtime. Set to 0 to keep it running while a VS Code window remains connected. The runtime restarts from the local model cache on the next dictation."
         }
       }
     }

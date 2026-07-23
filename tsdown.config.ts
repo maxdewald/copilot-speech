@@ -46,7 +46,7 @@ function vendorOnnx(): void {
 }
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/transcription-worker.ts'],
+  entry: ['src/index.ts', 'src/speech-daemon.ts'],
   outDir,
   format: ['cjs'],
   dts: false,

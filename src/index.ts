@@ -1,4 +1,5 @@
 import type { ExtensionContext } from 'vscode'
+import type { InferenceDevice } from './worker-protocol'
 import { join } from 'node:path'
 import process from 'node:process'
 import { env, UIKind, window, workspace } from 'vscode'
@@ -18,18 +19,20 @@ export function activate(context: ExtensionContext): void {
 
   const helperExecutable = process.platform === 'win32' ? 'copilot-speech-helper.exe' : 'copilot-speech-helper'
   const cacheDir = join(context.globalStorageUri.fsPath, 'models')
+  const device = workspace.getConfiguration('copilotSpeech').get<InferenceDevice>('device', 'auto')
   const idleMinutes = workspace.getConfiguration('copilotSpeech').get('modelIdleMinutes', 15)
   const idleUnloadMs = Number.isFinite(idleMinutes) && idleMinutes > 0
     ? Math.round(idleMinutes * 60_000)
     : 0
   const engine = new WorkerSpeechEngine(
     {
-      workerPath: context.asAbsolutePath('dist/extension/transcription-worker.cjs'),
+      daemonPath: context.asAbsolutePath('dist/extension/speech-daemon.cjs'),
       helperPath: context.asAbsolutePath(`dist/native/runtime/${process.platform}-${process.arch}/${helperExecutable}`),
       vadModelPath: context.asAbsolutePath('dist/extension/silero_vad_legacy.onnx'),
       modelId: MODEL_ID,
       dtype: MODEL_DTYPE,
       cacheDir,
+      device,
       idleUnloadMs,
     },
     output,
@@ -47,7 +50,10 @@ export function activate(context: ExtensionContext): void {
       session,
       output,
       async () => ensureModelConsent(context, cacheDir, MODEL_ID, MODEL_DTYPE),
-      () => deleteDownloadedModel(context, cacheDir, MODEL_ID),
+      async () => {
+        await engine.prepareModelDeletion()
+        return deleteDownloadedModel(context, cacheDir, MODEL_ID)
+      },
     ),
   )
 
