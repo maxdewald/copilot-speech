@@ -4,10 +4,10 @@
   "displayName": "Copilot Speech",
   "type": "module",
   "version": "0.4.0",
-  "packageManager": "pnpm@11.15.1",
+  "packageManager": "pnpm@11.16.0",
   "volta": {
     "node": "24.18.0",
-    "pnpm": "11.15.1"
+    "pnpm": "11.16.0"
   },
   "description": "Private local speech-to-text for GitHub Copilot Chat.",
   "author": "Maximilian Dewald <maximilian@dewald.one>",
