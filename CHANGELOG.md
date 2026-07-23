@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.0](https://github.com/maxdewald/copilot-speech/compare/v0.5.0...v0.6.0) (2026-07-23)
+
+
+### Features
+
+* use shared speech daemon and add gpu support ([7eef7bd](https://github.com/maxdewald/copilot-speech/commit/7eef7bd6f22f43a801c4d1f2c726630c479512dc))
+
+
+### Bug Fixes
+
+* use full recording buffer for previews ([8ab4a6f](https://github.com/maxdewald/copilot-speech/commit/8ab4a6f59a8608a0f64335fe6a7a0f1c3ec1d433))
+
+
+### Refactoring
+
+* remove helperPath configuration ([601f0c1](https://github.com/maxdewald/copilot-speech/commit/601f0c176d51da87c96e81fe09fafb339218564d))
+
+
+### Documentation
+
+* update README badges ([102aa0c](https://github.com/maxdewald/copilot-speech/commit/102aa0c64dc1dfa988ae8c9948d6e9c17d39905d))
+
 ## [0.5.0](https://github.com/maxdewald/copilot-speech/compare/v0.4.0...v0.5.0) (2026-07-23)
 
 
