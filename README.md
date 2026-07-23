@@ -10,8 +10,8 @@
 </p>
 
 <p>
-  <a href="https://marketplace.visualstudio.com/items?itemName=maxdewald.copilot-speech"><img src="https://img.shields.io/visual-studio-marketplace/v/maxdewald.copilot-speech?label=VS%20Marketplace&logo=visualstudiocode&logoColor=white&color=007ACC" alt="VS Marketplace" /></a>
-  <img src="https://img.shields.io/badge/VS%20Code-1.124%2B-007ACC?logo=visualstudiocode&logoColor=white" alt="VS Code 1.124+" />
+	<img src="https://img.shields.io/badge/VS%20Code-1.124%2B-007ACC" alt="VS Code 1.124+" />
+	<a href="https://marketplace.visualstudio.com/items?itemName=maxdewald.copilot-speech"><img src="https://badgen.net/vs-marketplace/d/maxdewald.copilot-speech" alt="VS Marketplace downloads" /></a>
   <img src="https://img.shields.io/badge/transcription-local-168477" alt="Local transcription" />
   <a href="./LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-3DA639?logo=opensourceinitiative&logoColor=white" alt="MIT License" /></a>
 </p>
