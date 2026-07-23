@@ -146,12 +146,6 @@
           "scope": "machine",
           "description": "Language spoken during dictation. Cohere Transcribe does not auto-detect language, so pick the one you will speak. The model is downloaded and cached on first use."
         },
-        "copilotSpeech.helperPath": {
-          "type": "string",
-          "default": "",
-          "scope": "machine",
-          "description": "Optional path to a Copilot Speech native capture helper build. Intended for development until managed runtime downloads are published."
-        },
         "copilotSpeech.modelIdleMinutes": {
           "type": "number",
           "default": 15,

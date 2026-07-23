@@ -16,14 +16,7 @@ export function activate(context: ExtensionContext): void {
   const output = window.createOutputChannel('Copilot Speech', { log: true })
   output.info(`Activating Copilot Speech on ${process.platform}-${process.arch}.`)
 
-  const resolveHelperPath = (): string => {
-    const configuredPath = workspace.getConfiguration('copilotSpeech').get('helperPath', '').trim()
-    if (configuredPath)
-      return configuredPath
-    const executable = process.platform === 'win32' ? 'copilot-speech-helper.exe' : 'copilot-speech-helper'
-    return context.asAbsolutePath(`dist/native/runtime/${process.platform}-${process.arch}/${executable}`)
-  }
-
+  const helperExecutable = process.platform === 'win32' ? 'copilot-speech-helper.exe' : 'copilot-speech-helper'
   const cacheDir = join(context.globalStorageUri.fsPath, 'models')
   const idleMinutes = workspace.getConfiguration('copilotSpeech').get('modelIdleMinutes', 15)
   const idleUnloadMs = Number.isFinite(idleMinutes) && idleMinutes > 0
@@ -32,7 +25,7 @@ export function activate(context: ExtensionContext): void {
   const engine = new WorkerSpeechEngine(
     {
       workerPath: context.asAbsolutePath('dist/extension/transcription-worker.cjs'),
-      helperPath: resolveHelperPath(),
+      helperPath: context.asAbsolutePath(`dist/native/runtime/${process.platform}-${process.arch}/${helperExecutable}`),
       vadModelPath: context.asAbsolutePath('dist/extension/silero_vad_legacy.onnx'),
       modelId: MODEL_ID,
       dtype: MODEL_DTYPE,
