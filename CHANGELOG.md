@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/maxdewald/copilot-speech/compare/v0.4.0...v0.5.0) (2026-07-23)
+
+
+### Features
+
+* add demo section and image to README ([d9ad7b8](https://github.com/maxdewald/copilot-speech/commit/d9ad7b82aef303ba4c3d962e4404f16f19a1390c))
+* apply VAD filtering and dynamic generation options to previews ([d03fb0d](https://github.com/maxdewald/copilot-speech/commit/d03fb0dfedf80391f8fdf4a7fc4326bfad88783b))
+
 ## [0.4.0](https://github.com/maxdewald/copilot-speech/compare/v0.3.2...v0.4.0) (2026-07-21)
 
 
