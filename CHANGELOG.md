@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/maxdewald/copilot-speech/compare/v0.6.0...v0.6.1) (2026-07-24)
+
+
+### Documentation
+
+* update commands and settings in README ([d330dfe](https://github.com/maxdewald/copilot-speech/commit/d330dfec0284e7e9730b238a50359592fa08e555))
+
 ## [0.6.0](https://github.com/maxdewald/copilot-speech/compare/v0.5.0...v0.6.0) (2026-07-23)
 
 
