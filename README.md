@@ -99,6 +99,9 @@ The native helper only captures audio and streams raw PCM; it contains no ML cod
 | `Copilot Speech: Start Chat Dictation` | `Ctrl+Alt+V` / `Cmd+Alt+V` | Start a new local dictation session |
 | `Copilot Speech: Stop Dictation` | Same toggle | Finish dictation and deliver the final text |
 | `Copilot Speech: Cancel Dictation` | `Escape` while recording | Discard the active session |
+| `Copilot Speech: Show Logs` | — | Open the Copilot Speech output log |
+| `Copilot Speech: Delete Downloaded Model` | — | Delete the cached model; it downloads again on the next dictation |
+| `Copilot Speech: Open Speech Settings` | — | Open the extension settings in VS Code |
 
 </details>
 
@@ -108,6 +111,7 @@ The native helper only captures audio and streams raw PCM; it contains no ML cod
 | Setting | Default | Description |
 | --- | --- | --- |
 | `copilotSpeech.language` | `en` | Language you will speak (Cohere Transcribe does not auto-detect) |
+| `copilotSpeech.device` | `auto` | Recognition hardware: try WebGPU with CPU fallback (`auto`), require WebGPU (`gpu`), or always use the CPU (`cpu`) |
 | `copilotSpeech.modelIdleMinutes` | `15` | Minutes of inactivity before stopping the shared speech runtime (`0` keeps it running while a VS Code window remains connected) |
 
 </details>
