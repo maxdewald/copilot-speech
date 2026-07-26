@@ -5,8 +5,8 @@
 <h1>Copilot Speech</h1>
 
 <p>
-  <b>Private, local voice dictation for GitHub Copilot Chat in desktop VS Code</b><br/>
-  <sub>Speak naturally. Review the prompt. Send when you are ready.</sub>
+  <b>Private, local voice dictation for GitHub Copilot Chat in VS Code</b><br/>
+  <sub>Text to speak input that actually works</sub>
 </p>
 
 <p>
