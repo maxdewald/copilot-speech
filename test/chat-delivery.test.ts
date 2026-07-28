@@ -122,6 +122,19 @@ describe('chatTranscriptDelivery', () => {
     expect(getActiveTextEditorContent()).toBe('Hello world')
   })
 
+  it('replaces the suffix when a preview reworded the start instead of extending it', async () => {
+    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
+    setActiveTextEditorContent('')
+    const delivery = new ChatDelivery()
+
+    await delivery.showPreview('In this folder are a lot of images')
+    await delivery.showPreview('Are a lot of images of a Russian diary')
+    expect(getActiveTextEditorContent()).toBe('Are a lot of images of a Russian diary')
+
+    await delivery.commit('Are a lot of images of a Russian diary of my grandpa')
+    expect(getActiveTextEditorContent()).toBe('Are a lot of images of a Russian diary of my grandpa')
+  })
+
   it('skips unchanged previews', async () => {
     commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
     setActiveTextEditorContent('')

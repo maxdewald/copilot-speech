@@ -72,8 +72,6 @@ export class ChatDelivery {
 
     if (this.typed !== undefined)
       await deleteChars(this.typed.length)
-    else
-      await commands.executeCommand('cursorBottom')
 
     await commands.executeCommand('type', { text: piece })
     this.typed = piece
@@ -109,7 +107,6 @@ async function appendOnly(transcript: string, mayHaveContent = false): Promise<b
     return false
 
   if (await focusChat()) {
-    await commands.executeCommand('cursorBottom')
     await commands.executeCommand('type', { text: spacingForAppend(readChatContent(), text, mayHaveContent) })
     return true
   }
@@ -131,6 +128,8 @@ async function focusChat(): Promise<boolean> {
   await commands.executeCommand(OPEN_CHAT_COMMAND)
   if (availableCommands.includes(FOCUS_CHAT_INPUT_COMMAND))
     await commands.executeCommand(FOCUS_CHAT_INPUT_COMMAND)
+  // The caret does not survive the async re-focus; anchor it at the end.
+  await commands.executeCommand('cursorBottom')
   return true
 }
 
