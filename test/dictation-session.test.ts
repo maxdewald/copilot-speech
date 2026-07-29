@@ -34,9 +34,7 @@ class FakeHelper implements SpeechEngine {
 
 function createDelivery() {
   return {
-    showPreview: vi.fn(async () => {}),
     commit: vi.fn(async () => {}),
-    clearPreview: vi.fn(async () => {}),
   }
 }
 
@@ -77,7 +75,7 @@ describe('dictationSession', () => {
     expect(session.state.state).toBe('idle')
   })
 
-  it('tracks partial transcripts and previews them without committing', async () => {
+  it('tracks partial transcripts without editing chat', async () => {
     const helper = new FakeHelper()
     const delivery = createDelivery()
     const session = new DictationSession(helper, delivery, output)
@@ -87,12 +85,11 @@ describe('dictationSession', () => {
     helper.fire({ type: 'partial', sessionId, text: 'Hello' })
     helper.fire({ type: 'partial', sessionId, text: 'Hello from speech' })
 
-    await vi.waitFor(() => expect(delivery.showPreview).toHaveBeenLastCalledWith('Hello from speech'))
     expect(session.state).toEqual({ state: 'recording', partialText: 'Hello from speech' })
     expect(delivery.commit).not.toHaveBeenCalled()
   })
 
-  it('clears the chat preview when a session is cancelled', async () => {
+  it('does not edit chat when a session is cancelled', async () => {
     const helper = new FakeHelper()
     const delivery = createDelivery()
     const session = new DictationSession(helper, delivery, output)
@@ -100,15 +97,14 @@ describe('dictationSession', () => {
     await session.start(async () => model)
     const sessionId = helper.startOptions!.sessionId
     helper.fire({ type: 'partial', sessionId, text: 'Hello' })
-    await vi.waitFor(() => expect(delivery.showPreview).toHaveBeenCalled())
 
     session.cancel()
-    await vi.waitFor(() => expect(delivery.clearPreview).toHaveBeenCalled())
+    await vi.waitFor(() => expect(session.state.state).toBe('idle'))
     expect(session.state.state).toBe('idle')
     expect(delivery.commit).not.toHaveBeenCalled()
   })
 
-  it('clears an empty final transcript instead of committing', async () => {
+  it('ignores an empty final transcript', async () => {
     const helper = new FakeHelper()
     const delivery = createDelivery()
     const session = new DictationSession(helper, delivery, output)
@@ -117,7 +113,7 @@ describe('dictationSession', () => {
     const sessionId = helper.startOptions!.sessionId
     helper.fire({ type: 'final', sessionId, text: '   ' })
 
-    await vi.waitFor(() => expect(delivery.clearPreview).toHaveBeenCalled())
+    await vi.waitFor(() => expect(session.state.state).toBe('idle'))
     expect(delivery.commit).not.toHaveBeenCalled()
     expect(session.state.state).toBe('idle')
   })

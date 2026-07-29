@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ChatDelivery, deliverToChat } from '../src/chat-delivery'
+import { ChatDelivery } from '../src/chat-delivery'
 import { commands, env, getActiveTextEditorContent, resetVSCodeMock, setActiveTextEditorContent, window } from './support/vscode'
 
 describe('chatTranscriptDelivery', () => {
@@ -9,7 +9,7 @@ describe('chatTranscriptDelivery', () => {
     commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
     setActiveTextEditorContent('Review this')
 
-    await deliverToChat('function')
+    await new ChatDelivery().commit('function')
 
     expect(commands.executeCommand).toHaveBeenCalledWith('workbench.action.chat.open')
     expect(commands.executeCommand).toHaveBeenCalledWith('workbench.action.chat.focusInput')
@@ -23,7 +23,7 @@ describe('chatTranscriptDelivery', () => {
     commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
     setActiveTextEditorContent('')
 
-    await deliverToChat('Hello')
+    await new ChatDelivery().commit('Hello')
 
     expect(commands.executeCommand).toHaveBeenCalledWith('type', { text: 'Hello' })
     expect(getActiveTextEditorContent()).toBe('Hello')
@@ -33,7 +33,7 @@ describe('chatTranscriptDelivery', () => {
     commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
     setActiveTextEditorContent('Hello ')
 
-    await deliverToChat('world')
+    await new ChatDelivery().commit('world')
 
     expect(commands.executeCommand).toHaveBeenCalledWith('type', { text: 'world' })
     expect(getActiveTextEditorContent()).toBe('Hello world')
@@ -43,7 +43,7 @@ describe('chatTranscriptDelivery', () => {
     commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
     setActiveTextEditorContent(undefined)
 
-    await deliverToChat('world')
+    await new ChatDelivery().commit('world')
 
     expect(commands.executeCommand).toHaveBeenCalledWith('type', { text: 'world' })
   })
@@ -51,32 +51,17 @@ describe('chatTranscriptDelivery', () => {
   it('does nothing for empty transcripts', async () => {
     commands.available = ['workbench.action.chat.open']
 
-    await deliverToChat('   ')
+    await new ChatDelivery().commit('   ')
 
     expect(commands.executeCommand).not.toHaveBeenCalled()
     expect(env.clipboard.writeText).not.toHaveBeenCalled()
   })
 
   it('copies the transcript when Chat prefill is unavailable', async () => {
-    await deliverToChat('Fallback transcript')
+    await new ChatDelivery().commit('Fallback transcript')
 
     expect(env.clipboard.writeText).toHaveBeenCalledWith('Fallback transcript')
     expect(window.showWarningMessage).toHaveBeenCalled()
-  })
-
-  it('rewrites only the live suffix and preserves baseline text', async () => {
-    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
-    setActiveTextEditorContent('Keep me')
-    const delivery = new ChatDelivery()
-
-    await delivery.showPreview('Hello')
-    expect(getActiveTextEditorContent()).toBe('Keep me Hello')
-
-    await delivery.showPreview('Hello world')
-    expect(getActiveTextEditorContent()).toBe('Keep me Hello world')
-
-    await delivery.commit('Hello from speech')
-    expect(getActiveTextEditorContent()).toBe('Keep me Hello from speech')
   })
 
   it('appends a second recording after the first without overwriting', async () => {
@@ -86,9 +71,6 @@ describe('chatTranscriptDelivery', () => {
 
     await delivery.commit('First take')
     expect(getActiveTextEditorContent()).toBe('First take')
-
-    await delivery.showPreview('Second')
-    expect(getActiveTextEditorContent()).toBe('First take Second')
 
     await delivery.commit('Second take')
     expect(getActiveTextEditorContent()).toBe('First take Second take')
@@ -108,62 +90,11 @@ describe('chatTranscriptDelivery', () => {
     expect(commands.executeCommand).toHaveBeenCalledWith('type', { text: ' Work mate' })
   })
 
-  it('grows previews by typing only the delta when possible', async () => {
-    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
-    setActiveTextEditorContent('')
-    const delivery = new ChatDelivery()
-
-    await delivery.showPreview('Hello')
-    commands.executeCommand.mockClear()
-
-    await delivery.showPreview('Hello world')
-    expect(commands.executeCommand).toHaveBeenCalledWith('type', { text: ' world' })
-    expect(commands.executeCommand).not.toHaveBeenCalledWith('cursorMove', expect.anything())
-    expect(getActiveTextEditorContent()).toBe('Hello world')
-  })
-
-  it('replaces the suffix when a preview reworded the start instead of extending it', async () => {
-    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
-    setActiveTextEditorContent('')
-    const delivery = new ChatDelivery()
-
-    await delivery.showPreview('In this folder are a lot of images')
-    await delivery.showPreview('Are a lot of images of a Russian diary')
-    expect(getActiveTextEditorContent()).toBe('Are a lot of images of a Russian diary')
-
-    await delivery.commit('Are a lot of images of a Russian diary of my grandpa')
-    expect(getActiveTextEditorContent()).toBe('Are a lot of images of a Russian diary of my grandpa')
-  })
-
-  it('skips unchanged previews', async () => {
-    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
-    setActiveTextEditorContent('')
-    const delivery = new ChatDelivery()
-
-    await delivery.showPreview('Hello')
-    const calls = commands.executeCommand.mock.calls.length
-    await delivery.showPreview('Hello')
-    expect(commands.executeCommand.mock.calls.length).toBe(calls)
-  })
-
-  it('clears only the live suffix on cancel', async () => {
-    commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
-    setActiveTextEditorContent('Keep me')
-    const delivery = new ChatDelivery()
-
-    await delivery.showPreview('temporary')
-    expect(getActiveTextEditorContent()).toBe('Keep me temporary')
-
-    await delivery.clearPreview()
-    expect(getActiveTextEditorContent()).toBe('Keep me')
-  })
-
   it('never calls chat.open with a full query replace', async () => {
     commands.available = ['workbench.action.chat.open', 'workbench.action.chat.focusInput']
     setActiveTextEditorContent('Existing')
     const delivery = new ChatDelivery()
 
-    await delivery.showPreview('Hello')
     await delivery.commit('Hello final')
 
     for (const call of commands.executeCommand.mock.calls) {

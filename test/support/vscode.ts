@@ -82,18 +82,6 @@ export const commands = {
       }
       return undefined
     }
-    if (command === 'cursorMove') {
-      const opts = args[0] as { to?: string, by?: string, value?: number, select?: boolean } | undefined
-      if (opts?.to === 'left' && opts.select === true && editorText !== undefined && editorText.length > 0) {
-        const n = Math.min(opts.value ?? 1, editorText.length)
-        editorText = editorText.slice(0, -n)
-      }
-      return undefined
-    }
-    if (command === 'deleteLeft') {
-      // Selection was already removed by cursorMove+select in tests.
-      return undefined
-    }
     return undefined
   }),
 }
