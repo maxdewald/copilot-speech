@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/maxdewald/copilot-speech/compare/v0.6.2...v0.6.3) (2026-07-29)
+
+
+### Refactoring
+
+* remove live chat preview functionality, too buggy ([88da2ef](https://github.com/maxdewald/copilot-speech/commit/88da2efa0f5725057ee243df8dea38675ed79383))
+
 ## [0.6.2](https://github.com/maxdewald/copilot-speech/compare/v0.6.1...v0.6.2) (2026-07-28)
 
 
