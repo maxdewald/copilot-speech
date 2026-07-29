@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/maxdewald/copilot-speech/compare/v0.6.1...v0.6.2) (2026-07-28)
+
+
+### Bug Fixes
+
+* move cursor bottom into focusChat ([5209228](https://github.com/maxdewald/copilot-speech/commit/520922864c72d41b82e0bf3841b2f8a77ffd97dd))
+
 ## [0.6.1](https://github.com/maxdewald/copilot-speech/compare/v0.6.0...v0.6.1) (2026-07-24)
 
 
