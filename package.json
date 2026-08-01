@@ -6,7 +6,7 @@
   "version": "0.6.3",
   "packageManager": "pnpm@11.17.0",
   "volta": {
-    "node": "24.18.0",
+    "node": "24.18.1",
     "pnpm": "11.17.0"
   },
   "description": "Private local speech-to-text for GitHub Copilot Chat.",
